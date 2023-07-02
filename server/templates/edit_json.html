@@ -1,0 +1,322 @@
+<!DOCTYPE HTML>
+<html>
+   <head>
+     <title>Video Analytics Task Json Editor</title>
+     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+     <meta http-equiv="cache-control" content="public,max-age=2592000">
+      <link rel="stylesheet" type="text/css" href="./dist/jsoneditor.css">
+      <link rel="stylesheet" type="text/css" href="./dist/bootstrap/css/bootstrap.min.css">
+      <link rel="icon" href="./dist/json.png">
+      <link rel="shortcut icon" href="./dist/json.png">
+      <style type="text/css">
+         code {
+           background-color: #f5f5f5;
+         }
+         #jsoneditor {
+           width: 800px;
+           height: 500px;
+         }
+        
+          .alert {
+          display: flex;
+          flex-direction: column;
+          /* align-items: center; */
+          gap: 10px;
+          /* border: 1px solid #3883fa; */
+        }
+
+        .jsoneditor-menu {
+          display: none;
+        }
+      </style>
+   </head>
+   <body>
+      <nav class="navbar navbar-expand-md navbar-dark bg-primary mb-4">
+         <a class="navbar-brand" href="/"><strong>[ Video Analytics ]</strong>  任务配置编辑器  </a>
+         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+         <span class="navbar-toggler-icon"></span>
+         </button>
+         <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav mr-auto">
+
+               <li class="nav-item">
+                  <a class="nav-link" href="javascript:void(0);" onclick="return editor.setMode('code');">Editor</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="javascript:void(0);" onclick="return editor.setMode('form');">Form</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="javascript:void(0);" onclick="return editor.setMode('tree');">Tree</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="javascript:void(0);" onclick="return editor.setMode('view');">View</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="javascript:void(0);" onclick="return editor.setMode('text');">Text (Raw)</a>
+               </li>
+
+            </ul>
+
+         </div>
+      </nav>
+      <div class="container-fluid">
+         <div class="row">
+
+            <div class="col-8" id="jsoneditor"></div>
+            <div class="col-4" id="filecmds">
+              <div class="alert alert-primary">
+                <div>
+                  <strong>选择任务配置文件: </strong> <br/>
+                  <!-- <input class="btn btn-outline-primary" type="file" id="loadDocument" value="Load"/> -->
+                  <input type="file" id="loadDocument" value="Load"/>
+                </div>
+                     
+                <!-- <div>
+                  <strong>提交配置文件: </strong> &nbsp; &nbsp;
+                  <input  class="btn btn-primary" type="button" id="submitJson" value="Submit" onclick="sendJson()"/>
+                </div> -->
+                
+                <div style="display: none;">
+                  <strong>保存配置文件: </strong> &nbsp; &nbsp;
+                  <input  class="btn btn-primary" type="button" id="saveDocument" value="Save" />
+                </div>
+
+                <div id="binaryUpload">
+                  <strong>上传代码: </strong> &nbsp; &nbsp;
+                </div>
+
+                <!-- <div>
+                  <strong>提交代码文件: </strong> &nbsp; &nbsp;
+                  <input  class="btn btn-primary" type="button" id="submitJson" value="Submit" onclick="sendCodeFiles()"/>
+                </div> -->
+
+                <div>
+                  <strong>提交任务: </strong> &nbsp; &nbsp;
+                  <input  class="btn btn-primary" type="button" id="submitJsonAndCode" value="Submit" onclick="sendJsonAndCodeFiles()"/>
+                </div>
+
+                <p>&nbsp;</p>
+
+              </div>
+
+            </div>
+
+         </div>
+      </div>
+      <div id="binaryUpload"></div>
+      <script>
+      // Create a variable to keep track of the number of lines in the form
+      let lineCount = 1;
+
+      // Get the div with id "binaryUpload"
+      const binaryUploadDiv = document.getElementById("binaryUpload");
+
+      // Create the add button
+      const addButton = document.createElement("button");
+      addButton.textContent = "+";
+      addButton.type = "button"; // Add this line
+      addButton.addEventListener("click", () => {
+        // Create a new line in the form
+        const newLine = document.createElement("div");
+        newLine.id = `line${lineCount}`;
+        const textInput = document.createElement("input");
+        textInput.type = "text";
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        newLine.appendChild(textInput);
+        newLine.appendChild(fileInput);
+        binaryUploadDiv.appendChild(newLine);
+        lineCount++;
+      });
+
+      // Create the minus button
+      const minusButton = document.createElement("button");
+      minusButton.textContent = "-";
+      minusButton.type = "button"; // Add this line
+      minusButton.addEventListener("click", () => {
+        // Remove the last line in the form
+        const lastLine = document.getElementById(`line${lineCount - 1}`);
+        binaryUploadDiv.removeChild(lastLine);
+        lineCount--;
+      });
+
+      // Create the form
+      const addminusdiv = document.createElement("div");
+      addminusdiv.appendChild(addButton);
+      addminusdiv.appendChild(minusButton);
+      binaryUploadDiv.appendChild(addminusdiv);
+      </script>
+
+
+      <script src="./dist/jsoneditor.js"></script>
+      <script src="./dist/FileSaver.min.js"></script>
+      <script src="./dist/setting.min.js"></script>
+      <script>
+      // function pausecomp(millis)
+      // {
+      //     var date = new Date();
+      //     var curDate = null;
+      //     do { curDate = new Date(); }
+      //     while(curDate-date < millis);
+      // }
+      // // Get the file input element
+      // const fileInput = document.getElementById('loadDocument');
+      // // Add the generateFileUploadDiv() function as the event handler for the onchange event
+      // fileInput.onchange = generateFileUploadDiv;
+      // function generateFileUploadDiv(){
+      //   document.getElementById("binaryUpload").remove();
+      //   pausecomp(2000);
+        
+      //   // Parse the JSON string into a JavaScript object
+      //   const jsonStrRaw = editor.getText();
+      //   // Remove newline characters from the JSON string
+      //   const cleanedJsonStr = jsonStrRaw.replace(/\n/g, '');
+
+      //   const jsonObj = JSON.parse(cleanedJsonStr);
+      //   // Get the "TaskList" array
+      //   const taskList = jsonObj.task_list;
+      //   console.log(taskList);
+      //   // Loop through the "TaskList" array and generate a div with a file input for each item
+      //   const taskListDiv = document.createElement('div');
+      //   taskListDiv.id = "binaryUpload";
+      //   taskList.forEach(task => {
+      //     const taskDiv = document.createElement('div');
+      //     const taskLabel = document.createElement('label');
+      //     taskLabel.textContent = `Task ${task}: `;
+      //     const taskInput = document.createElement('input');
+      //     taskInput.type = 'file';
+      //     taskInput.name = `task_${task}_file`;
+      //     taskDiv.appendChild(taskLabel);
+      //     taskDiv.appendChild(taskInput);
+      //     taskListDiv.appendChild(taskDiv);
+      //   });
+
+      // Append the "TaskList" div to the DOM
+      // document.getElementById("filecmds").appendChild(taskListDiv);
+      // document.body.appendChild(taskListDiv);
+
+      // }
+
+
+      function sendCodeFiles(){
+        const files = [];
+        const newLines = binaryUploadDiv.querySelectorAll('div[id^="line"]');
+        newLines.forEach((newLine) => {
+          const textInput = newLine.querySelector('input[type="text"]');
+          const fileInput = newLine.querySelector('input[type="file"]');
+          const file = fileInput.files[0];
+          files.push({ name: textInput.value, file: file });
+        });
+        // Create a new FormData object
+        const formData = new FormData();
+
+        // Loop through the files array and append each file to the FormData object
+        files.forEach(fileObj => {
+          formData.append(fileObj.name, fileObj.file);
+        });
+
+        // Use fetch to upload the files to the backend
+        fetch('/upload-codefiles-api', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => {
+          if (!response.ok) {
+            alert('提交失败！');
+            throw new Error('Network response was not ok');
+          }
+          alert('提交成功！');
+          return response.text();
+        })
+        .then(data => {
+          console.log(data);
+        })
+        .catch(error => {
+          console.error('There was a problem with the fetch operation:', error);
+        });
+      }
+
+      function sendJson() {
+
+        var rawText = editor.getText();
+        console.log(rawText)
+        const formData = new FormData();
+        const file = new Blob([rawText], { type: 'application/json' });
+        formData.append('file', file);
+
+
+        fetch('/upload-json-and-codefiles-api', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => {
+          if (!response.ok) {
+            alert('提交失败！');
+            throw new Error('Network response was not ok');
+          }
+          alert('提交成功！');
+          return response.text();
+        })
+        .then(data => {
+          console.log(data);
+        })
+        .catch(error => {
+          console.error('There was a problem with the fetch operation:', error);
+        });
+      }
+
+      function sendJsonAndCodeFiles() {
+        var rawText = editor.getText();
+        console.log(rawText)
+        const formData = new FormData();
+
+        // add json file
+        const file = new Blob([rawText], { type: 'application/json' });
+        formData.append('task_json', file);
+        
+        // add code files
+        const files = [];
+        const newLines = binaryUploadDiv.querySelectorAll('div[id^="line"]');
+        newLines.forEach((newLine) => {
+          const textInput = newLine.querySelector('input[type="text"]');
+          const fileInput = newLine.querySelector('input[type="file"]');
+          const file = fileInput.files[0];
+          files.push({ name: textInput.value, file: file });
+        });
+
+        // Loop through the files array and append each file to the FormData object
+        files.forEach(fileObj => {
+          formData.append(fileObj.name, fileObj.file);
+        });
+
+
+        fetch('/upload-json-and-codefiles-api', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => {
+          if (!response.ok) {
+            alert('提交失败！');
+            throw new Error('Network response was not ok');
+          }
+          alert('提交成功！');
+          return response.text();
+        })
+        .then(data => {
+          console.log(data);
+        })
+        .catch(error => {
+          console.error('There was a problem with the fetch operation:', error);
+        });
+      }
+      
+
+      </script>
+      <!-- <footer class="footer" style="color:#b4b4b4;text-align: center;">
+        <p>&nbsp;</p>
+        <p>&nbsp;</p>
+        <a style="color:#b4b4b4;" href="https://github.com/rahulmukherjee85/JSON-Viewer">Open source</a> tool to Create, Update, Delete and Format JSON Object using Browser based tool.
+      </footer> -->
+
+   </body>
+</html>

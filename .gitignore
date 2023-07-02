@@ -1,0 +1,11 @@
+client/car_detection/
+client/face_detection/
+client/face_alignment/
+server/car_detection/
+server/face_detection/
+server/face_alignment/
+csv_data/
+*.mp4
+*.mov
+*.zip
+*.txt

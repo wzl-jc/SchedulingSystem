@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Register Task</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f2f2f2;
+      }
+      h1 {
+        text-align: center;
+        color: #333;
+      }
+      form {
+        margin: 0 auto;
+        width: 50%;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0px 0px 10px #ccc;
+      }
+      label {
+        display: block;
+        margin-bottom: 10px;
+        color: #666;
+      }
+      input[type="text"], input[type="file"] {
+        width: 95%;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        margin-bottom: 20px;
+        font-size: 16px;
+      }
+      input[type="submit"] {
+        background-color: #4CAF50;
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      /* input[type="submit"]:hover {
+        background-color: #555;
+      } */
+      #result {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 18px;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>注册任务</h1>
+    <form id="register-form" action="/register-task" method="POST">
+      <label for="task-name">任务名:</label>
+      <input type="text" id="task-name" name="task-name">
+      <label for="task_dag">DAG图:</label>
+      <input type="file" id="task_dag" name="task_dag">
+      <label for="video-path">视频流路径:</label>
+      <input type="text" id="video-path" name="video-path">
+      <input type="submit" id="submit-btn" value="提交">
+    </form>
+    <div id="result"></div>
+    <script>
+      $(function() {
+        $('#register-form').submit(function(event) {
+          event.preventDefault(); 
+
+          var form_data = new FormData($('#register-form')[0]);
+          $.ajax({
+            url: '/register-task-api',
+            type: 'POST',
+            data: form_data,
+            cache: false,
+            contentType: false,
+            processData: false,
+            success: function(response) {
+              $('#result').text(response);
+            },
+            error: function(xhr, status, error) {
+              $('#result').text('Failed：' + error);
+            }
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

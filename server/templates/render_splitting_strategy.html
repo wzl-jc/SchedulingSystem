@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Real-time Splitting Strategy</title>
+    <style>
+      h1 {
+        text-align: center;
+        color: #333;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f2f2f2;
+      }
+      table {
+        border-collapse: collapse;
+        margin: 0 auto;
+        width: 80%;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0px 0px 10px #ccc;
+      }
+      th, td {
+        text-align: left;
+        padding: 8px;
+        word-wrap: break-word;
+        max-width: 100%;
+      }
+      tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+      th {
+        background-color: #4CAF50;
+        color: white;
+        word-wrap: break-word;
+        max-width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>实时切片策略</h1>
+    <table>
+      <tr>
+        <th>Frame Size(当前视频分辨率)</th>
+      </tr>
+      <tr>
+        <td id="frame_size"></td>
+      </tr>
+      <tr>
+        <th>Split Numbers(切片数目)</th>
+      </tr>
+      <tr>
+        <td id="split_num"></td>
+      </tr>
+      <tr>
+        <th>Coordinators(切片左上角坐标)</th>
+      </tr>
+      <tr>
+        <td id="coord_res"></td>
+      </tr>
+      <tr>
+        <th>Sizes(切片大小)</th>
+      </tr>
+      <tr>
+        <td id="size_res"></td>
+      </tr>
+      <tr>
+        <th>Model Type(模型种类，0表示小模型，1表示大模型)</th>
+      </tr>
+      <tr>
+        <td id="model_type_res"></td>
+      </tr>
+    </table>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      $(document).ready(function() {
+        setInterval(function() {
+          $.getJSON('/get_splitting_strategy', function(data) {
+            $('#frame_size').text(JSON.stringify(data.frame_size));
+            $('#split_num').text(JSON.stringify(data.split_num));
+            $('#coord_res').text(JSON.stringify(data.coord_res));
+            $('#size_res').text(JSON.stringify(data.size_res));
+            $('#model_type_res').text(JSON.stringify(data.model_type_res));
+          });
+        }, 1000); // Update every second
+      });
+    </script>
