@@ -468,7 +468,8 @@ class ClientManager(object):
 
     # 维护边端状态相关
     def update_client_status(self):
-        self.client_status['cpu_ratio'] = psutil.cpu_percent(interval=None, percpu=True)  # 所有cpu的使用率
+        self.client_status['cpu_ratio'] = psutil.cpu_percent(interval=None, percpu=False)  # 所有cpu的使用率
+        self.client_status['n_cpu'] = self.cpu_count
         self.client_status['mem_ratio'] = psutil.virtual_memory().percent
         '''
         client_manager.client_status['swap_ratio'] = psutil.swap_memory().percent

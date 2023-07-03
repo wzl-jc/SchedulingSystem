@@ -19,10 +19,11 @@ SchedulingSystem
 ### 系统启动方式：
 * 启动云端，执行命令如下：
 ```shell
-# --server_ip指定云端提供服务的ip，设置为0.0.0.0以便同时提供定时事件和计算服务
+# --server_ip指定云端提供服务的ip，设置为服务器的公网ip
+# 注意，在ServerManager的构造函数中self.server_ip初始设置需要与服务器ip保持一致，供定时事件使用
 # --server_port指定云端提供服务的port
 # --edge_port指定边端提供服务的port，所有边端保持一致
-python3 app_server.py --server_ip=0.0.0.0 --server_port=5500 --edge_port=5500
+python3 app_server.py --server_ip=114.212.81.11 --server_port=5500 --edge_port=5500
 ```
 * 启动边缘端，执行命令如下：
 ```shell

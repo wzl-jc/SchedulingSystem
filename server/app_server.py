@@ -213,11 +213,10 @@ def trigger_update_clients_status():
     print("trigger_get_clients_status!")
 
 
-
 class ServerManager(object):
     def __init__(self):
         # 云端系统配置相关
-        self.server_ip = '127.0.0.1'  # 默认设置为127.0.0.1，供定时事件使用
+        self.server_ip = '114.212.81.11'  # 默认设置需要与服务器ip保持一致，供定时事件使用
         self.server_port = 5500
         self.edge_ip_set = set()  # 存放所有边缘端的ip，用于向边缘端发送请求
         self.edge_port = 5500  # 边缘端服务器的端口号，所有边缘端统一
@@ -420,7 +419,8 @@ class ServerManager(object):
         return service_list
 
     def update_server_status(self):
-        self.server_status['cpu_ratio'] = psutil.cpu_percent(interval=None, percpu=True)  # 所有cpu的使用率
+        self.server_status['cpu_ratio'] = psutil.cpu_percent(interval=None, percpu=False)  # 所有cpu的使用率
+        self.server_status['n_cpu'] = self.cpu_count
         self.server_status['mem_ratio'] = psutil.virtual_memory().percent
         '''
         self.server_status['swap_ratio'] = psutil.swap_memory().percent
@@ -500,10 +500,23 @@ class ServerManager(object):
         system_status_dict = dict()
         system_status_dict['cloud'] = dict()
         system_status_dict['host'] = dict()
+        # 由于这里用到了self.server_ip，因此命令行--server_ip参数不能设置为0.0.0.0
         system_status_dict['cloud'][self.server_ip] = self.server_status
         for edge_ip in self.clients_status.keys():
             system_status_dict['host'][edge_ip] = self.clients_status[edge_ip]
         return system_status_dict
+
+    def get_cluster_info(self):
+        cluster_info = dict()
+        cluster_info[self.server_ip] = self.server_status
+        assert isinstance(cluster_info[self.server_ip], dict)
+        cluster_info[self.server_ip]['node_role'] = 'cloud'
+
+        for edge_ip in self.clients_status.keys():
+            cluster_info[edge_ip] = self.clients_status[edge_ip]
+            cluster_info[edge_ip]['node_role'] = 'edge'
+
+        return cluster_info
 
 
 class ServerAppConfig(object):
@@ -785,6 +798,20 @@ def get_system_status():
     # 获取整个系统的状态信息，包括云端和边缘端
     system_status_dict = server_manager.get_system_status()
     return jsonify(system_status_dict)
+
+
+@app.route("/get_resource_info")
+def get_resource_info():
+    # 配合调度器获取系统资源信息的接口
+    resource_info = server_manager.get_system_status()
+    return jsonify(resource_info)
+
+
+@app.route("/get_cluster_info")
+def get_cluster_info():
+    # 配合调度器获取集群资源信息的接口
+    cluster_info = server_manager.get_cluster_info()
+    return jsonify(cluster_info)
 
 
 if __name__ == '__main__':
