@@ -6,14 +6,11 @@ import os
 import multiprocessing as mp
 import sys
 import importlib
-import numpy as np
 from werkzeug.serving import WSGIRequestHandler
-from flask_cors import CORS
 from flask_apscheduler import APScheduler
 from field_codec_utils import decode_image, encode_image
 import psutil
 import time
-import platform
 import argparse
 
 
@@ -201,7 +198,7 @@ def monitor_gpu(lock, pid_gpu_dict):
             pynvml.nvmlShutdown()
 '''
 
-'''
+
 def trigger_update_server_status():
     # 定时触发更新server状态
     temp_url = "http://" + server_manager.server_ip + ":" + str(server_manager.server_port) + "/update_server_status"
@@ -214,13 +211,13 @@ def trigger_update_clients_status():
     temp_url = "http://" + server_manager.server_ip + ":" + str(server_manager.server_port) + "/update_clients_status"
     requests.get(temp_url)
     print("trigger_get_clients_status!")
-'''
+
 
 
 class ServerManager(object):
     def __init__(self):
         # 云端系统配置相关
-        self.server_ip = '127.0.0.1'
+        self.server_ip = '127.0.0.1'  # 默认设置为127.0.0.1，供定时事件使用
         self.server_port = 5500
         self.edge_ip_set = set()  # 存放所有边缘端的ip，用于向边缘端发送请求
         self.edge_port = 5500  # 边缘端服务器的端口号，所有边缘端统一
@@ -500,9 +497,6 @@ class ServerManager(object):
         return self.clients_status
 
     def get_system_status(self):
-        self.update_server_status()
-        self.update_clients_status()
-
         system_status_dict = dict()
         system_status_dict['cloud'] = dict()
         system_status_dict['host'] = dict()
@@ -512,7 +506,6 @@ class ServerManager(object):
         return system_status_dict
 
 
-'''
 class ServerAppConfig(object):
     # flask定时任务的配置类
     JOBS = [
@@ -530,7 +523,7 @@ class ServerAppConfig(object):
         }
     ]
     SCHEDULER_API_ENABLED = True
-'''
+
 
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
@@ -803,11 +796,9 @@ if __name__ == '__main__':
 
     server_manager.init_server_param(args.server_ip, args.server_port, args.edge_port)
 
-    '''
     app.config.from_object(ServerAppConfig())
     scheduler = APScheduler()  # 利用APScheduler启动定时任务
     scheduler.init_app(app)
     scheduler.start()
-    '''
 
     app.run(host=server_manager.server_ip, port=server_manager.server_port)

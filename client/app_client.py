@@ -1,22 +1,17 @@
-import json
 import time
 from flask_apscheduler import APScheduler
 from flask_cors import CORS
-from flask import Flask, make_response, request, render_template, jsonify, send_from_directory
+from flask import Flask, make_response, request, jsonify
 import requests
 import os
 import paramiko
 import stat
 import importlib
-import cv2
 import sys
 import multiprocessing as mp
-import numpy as np
 from werkzeug.serving import WSGIRequestHandler
 import psutil
 from field_codec_utils import decode_image, encode_image
-import platform
-import torch
 import argparse
 
 
@@ -27,13 +22,12 @@ def register_edge_to_server():
     print("Edge register success!")
 
 
-'''
 def trigger_update_client_status():
     # 定时触发更新client状态
     temp_url = "http://" + client_manager.edge_ip + ":" + str(client_manager.edge_port) + "/update_client_status"
     requests.get(temp_url)
     print("trigger_update_client_status!")
-'''
+
 '''
 def monitor_gpu(lock, pid_gpu_dict):
     # 监听各个工作进程在执行任务过程中对GPU计算能力的利用率
@@ -224,8 +218,8 @@ class ClientManager(object):
         # 边端系统参数相关
         self.server_ip = '114.212.81.11'  # 服务器服务端的ip和端口号
         self.server_port = 5500
-        self.edge_ip = '172.27.140.47'
-        self.edge_port = 5501
+        self.edge_ip = '127.0.0.1'  # 默认设置为127.0.0.1，供定时事件使用
+        self.edge_port = 5500
         self.register_path = "/register_edge"  # 向服务器注册边缘端的接口
         self.server_ssh_port = 22   # 服务端接受ssh连接的端口
         self.server_ssh_username = 'guest'  # 服务端ssh连接的用户名和密码
@@ -539,7 +533,7 @@ class ClientManager(object):
     def get_client_status(self):
         return self.client_status
 
-'''
+
 class ClientAppConfig(object):
     # flask定时任务的配置类
     JOBS = [
@@ -551,7 +545,7 @@ class ClientAppConfig(object):
         }
     ]
     SCHEDULER_API_ENABLED = True
-'''
+
 
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
@@ -693,11 +687,9 @@ if __name__ == '__main__':
 
     register_edge_to_server()  # 向云端注册自己的存在
 
-    '''
     app.config.from_object(ClientAppConfig())
     scheduler = APScheduler()  # 利用APScheduler启动定时任务
     scheduler.init_app(app)
     scheduler.start()
-    '''
 
     app.run(host=client_manager.edge_ip, port=client_manager.edge_port)
