@@ -239,7 +239,7 @@ class ClientManager(object):
         self.cpu_count = psutil.cpu_count()  # 当前节点上的cpu核数
         self.process_mem_group_dict = dict()  # 记录各个进程对应的memory cgroup组，key为pid(int), value为group对象
         self.default_resource_limit = {  # 创建工作进程时默认的进程对各类资源的使用上限
-            'cpu_util_limit': 0.05
+            'cpu_util_limit': 1.0
         }
         self.process_cpu_group_dict = dict()  # 记录各个进程对应的cpu cgroup组，key为pid(int), value为group对象
         self.process_cpu_set_group_dict = dict()  # 记录各个进程对应的cpuset cgroup组，key为pid(int), value为group对象
@@ -430,6 +430,52 @@ class ClientManager(object):
 
             self.work_process_num += 1
             return True
+
+    def decrease_work_process(self, task_info):
+        task_name = task_info['task_name']
+        if task_name not in self.code_set:  # 如果某类任务目前没有下发到当前节点（当前节点没有执行对应任务的代码），则无法添加
+            return False
+        if len(self.process_dict[task_name]) <= 1:
+            print("task:{} has only one work process, decrease failed!".format(task_name))
+            return False
+
+        # 终止一个工作进程，将其从process_dict中删除，并将其输入输出队列删除
+        del_pid = self.process_dict[task_name][-1].pid
+        self.process_dict[task_name][-1].terminate()
+        self.process_dict[task_name][-1].join()
+        del self.process_dict[task_name][-1]
+        del self.input_queue_dict[task_name][-1]
+        del self.output_queue_dict[task_name][-1]
+
+        assert len(self.process_dict[task_name]) == len(self.input_queue_dict[task_name])
+        assert len(self.process_dict[task_name]) == len(self.output_queue_dict[task_name])
+
+        # 将pid从pid_set中删除
+        assert del_pid in self.pid_set
+        self.pid_set.remove(del_pid)
+
+        self.work_process_num -= 1
+
+        # 删除工作进程对应的各类资源控制组，并在/sys/fs/cgroup中各类资源目录下删除该进程对应的文件夹
+        if del_pid in self.process_mem_group_dict:
+            print("del_pid in self.process_mem_group_dict")
+            temp_command = "rmdir /sys/fs/cgroup/memory/process_{}".format(del_pid)
+            os.system(temp_command)
+            del self.process_mem_group_dict[del_pid]
+
+        if del_pid in self.process_cpu_group_dict:
+            print("del_pid in self.process_cpu_group_dict")
+            temp_command = "rmdir /sys/fs/cgroup/cpu/process_{}".format(del_pid)
+            os.system(temp_command)
+            del self.process_cpu_group_dict[del_pid]
+
+        if del_pid in self.process_cpu_set_group_dict:
+            print("del_pid in self.process_cpu_set_group_dict")
+            temp_command = "rmdir /sys/fs/cgroup/cpuset/process_{}".format(del_pid)
+            os.system(temp_command)
+            del self.process_cpu_set_group_dict[del_pid]
+
+        return True
 
     def limit_process_resource(self, process_resource_info):
         process_pid = process_resource_info['pid']
@@ -641,6 +687,14 @@ def concurrent_execute_task_new(task_name):
                                                                        t_output_ctx['proc_resource_info']['pid'])
                 proc_resource_info_list.append(t_output_ctx['proc_resource_info'])
             output_ctx['proc_resource_info_list'] = proc_resource_info_list
+        elif task_name == 'car_detection':
+            input_ctx['image'] = decode_image(input_ctx['image'])
+            client_manager.input_queue_dict[task_name][0].put(input_ctx)  # detection任务单进程执行
+            output_ctx = client_manager.output_queue_dict[task_name][0].get()
+            output_ctx['proc_resource_info']['cpu_util_limit'] = client_manager.get_process_cpu_util_limit(
+                output_ctx['proc_resource_info']['pid'])
+            output_ctx['proc_resource_info_list'] = [output_ctx['proc_resource_info']]
+            del output_ctx['proc_resource_info']
         output_ctx['execute_flag'] = True
     else:
         output_ctx['execute_flag'] = False
@@ -653,6 +707,15 @@ def add_work_process():
     create_res = dict()
     create_res['create_flag'] = client_manager.add_work_process(work_process_info)
     return jsonify(create_res)
+
+
+@app.route('/decrease_work_process', methods=['POST'])
+def decrease_work_process():
+    # 减少某类任务工作进程的接口
+    decrease_info = request.get_json()
+    decrease_res = dict()
+    decrease_res['decrease_flag'] = client_manager.decrease_work_process(decrease_info)
+    return jsonify(decrease_res)
 
 
 @app.route('/limit_process_resource', methods=['POST'])

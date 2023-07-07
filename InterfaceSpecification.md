@@ -373,7 +373,7 @@ res = ["face_detection", "face_alignment", "car_detection"]
 {   
     "face_detection": {
         // 资源分配操作类型，为1表示保持现有进程资源分配（用于冷启动、时延满足要求、修改其他调度参数等资源分配不变的情况）；
-        // 为2表示调整现有进程资源分配方式；为3表示增加新的进程
+        // 为2表示调整现有进程资源分配方式；为3表示增加新的进程；为4表示减少进程
         "opt_type": 1  // 为1，则只有opt_type字段
     },
     "face_alignment": {
@@ -389,6 +389,11 @@ res = ["face_detection", "face_alignment", "car_detection"]
     },
     "car_detection": {
         "opt_type": 3  // 为3，则只有opt_type字段
-    }
+    },
+    "car_classy": {
+        "opt_type": 4,
+        "node_ip": "114.212.81.11"  // 减少进程数的节点ip
+    },
+    
 }
 ```

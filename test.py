@@ -72,6 +72,37 @@ def my_plot_func():
     plt.show()  # 图形可视化
 
 
+def my_plot_func_1():
+    list1 = []
+    for i in range(180):
+        list1.append(1)
+    for i in range(90):
+        list1.append(2)
+    for i in range(90):
+        list1.append(3)
+    for i in range(490):
+        list1.append(2)
+
+
+    fig, ax = plt.subplots()  # 创建图实例
+    x = np.linspace(1, len(list1), len(list1))  # 创建x的取值范围
+
+    # ax.plot(x, csv_data_1[1], label='2%')
+    # ax.plot(x, csv_data_2[1], label='5%')
+    # ax.plot(x, csv_data_3[1], label='10%')
+    # ax.plot(x, csv_data_4[1], label='15%')
+    ax.plot(x, list1, label='tx2')
+    # ax.plot(x, list2, label='cloud')
+    # ax.plot(x, csv_data_6[1], label='50%')
+
+    ax.set_xlabel('frame index')  # 设置x轴名称 x label
+    ax.set_ylabel('process num')  # 设置y轴名称 y label
+    ax.set_title('process num--frame index')  # 设置图名为Simple Plot
+    ax.legend()  # 自动检测要在图例中显示的元素，并且显示
+
+    plt.ylim((0, 5))
+    plt.show()  # 图形可视化
+
 # if __name__ == '__main__':
 #     # 测试获取结果的接口
 #     headers = {"Content-type": "application/json"}
@@ -227,38 +258,15 @@ def my_plot_func():
 #     print("Start draw!")
 #     plot_func(csv_path, csv_name, csv_dir)
 
-# if __name__ == '__main__':
-#     # 测试获取结果的接口
-#     headers = {"Content-type": "application/json"}
-#     # task_url = "http://127.0.0.1:5500/execute_task/car_detection"
-#     task_url = "http://127.0.0.1:5500/concurrent_execute_task/face_detection"
-#     # task_url_1 = "http://127.0.0.1:5500/execute_task/face_alignment"
-#     video_cap = cv2.VideoCapture('input.mov')  # input.mov
-#     ret, frame = video_cap.read()
-#     count = 0
-#     image_list = []
-#     while ret:
-#         ret, frame = video_cap.read()
-#         # print(frame.shape, frame.dtype)
-#         image_list.append(encode_image(frame))
-#         count += 1
-#         if count == 2:
-#             break
-#     request_param = dict()
-#     request_param['image_list'] = image_list
-#     res = requests.post(task_url, data=json.dumps(request_param), headers=headers).text
-#     res_json = json.loads(res)
-#     print(type(res_json))
-#     print(res_json)
-
 
 
 if __name__ == '__main__':
     # 测试获取结果的接口
     headers = {"Content-type": "application/json"}
-    task_url = "http://114.212.81.11:5500/concurrent_execute_task_new/face_detection"
-    task_url_1 = "http://114.212.81.11:5500/concurrent_execute_task_new/face_alignment"
-    video_cap = cv2.VideoCapture('meeting-room.mp4')  # input.mov
+    task_url = "http://114.212.81.11:5500/concurrent_execute_task_new/car_detection"
+    # task_url = "http://114.212.81.11:5500/concurrent_execute_task_new/face_detection"
+    # task_url_1 = "http://114.212.81.11:5500/concurrent_execute_task_new/face_alignment"
+    video_cap = cv2.VideoCapture('traffic-720p.mp4')  # input.mov
     ret, frame = video_cap.read()
 
     obj_num_list = []
@@ -274,15 +282,17 @@ if __name__ == '__main__':
             output_ctx_1 = requests.post(task_url, data=json.dumps(input_ctx_1), headers=headers).text
             output_ctx_1 = json.loads(output_ctx_1)
             print(output_ctx_1.keys())
-            print(output_ctx_1['proc_resource_info_list'])
-            obj_num_list.append(len(output_ctx_1['faces']))
-            # d_latency_list.append(output_ctx_1['latency'])
+            print(output_ctx_1)
 
-            input_ctx_2 = output_ctx_1
-            output_ctx_2 = requests.post(task_url_1, data=json.dumps(input_ctx_2), headers=headers).text
-            output_ctx_2 = json.loads(output_ctx_2)
-            print(output_ctx_2)
-            # a_latency_list.append(output_ctx_2['latency'])
+            # print(output_ctx_1['proc_resource_info_list'])
+            # obj_num_list.append(len(output_ctx_1['faces']))
+            # # d_latency_list.append(output_ctx_1['latency'])
+            #
+            # input_ctx_2 = output_ctx_1
+            # output_ctx_2 = requests.post(task_url_1, data=json.dumps(input_ctx_2), headers=headers).text
+            # output_ctx_2 = json.loads(output_ctx_2)
+            # print(output_ctx_2)
+            # # a_latency_list.append(output_ctx_2['latency'])
 
             count += 1
             print("finish {} frame!".format(count))
@@ -307,28 +317,8 @@ if __name__ == '__main__':
 
 '''
 if __name__ == '__main__':
-    # my_plot_func()
-    dict1 = None
-    if dict1:
-        print("dict1")
-    else:
-        print("not dict1")
-
-    if dict1 is not None:
-        print("dict1 not None")
-    else:
-        print("dict1 None")
-
-    dict2 = dict()
-    if dict2:
-        print("dict2")
-    else:
-        print("not dict2")
-
-    if dict2 is not None:
-        print("dict2 not None")
-    else:
-        print("dict2 None")
+    my_plot_func_1()
 '''
+
 
 
