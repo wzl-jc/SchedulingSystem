@@ -263,7 +263,7 @@ def my_plot_func_1():
 if __name__ == '__main__':
     # 测试获取结果的接口
     headers = {"Content-type": "application/json"}
-    task_url = "http://114.212.81.11:5500/concurrent_execute_task_new/car_detection"
+    task_url = "http://127.0.0.1:5500/execute_task/car_detection"
     # task_url = "http://114.212.81.11:5500/concurrent_execute_task_new/face_detection"
     # task_url_1 = "http://114.212.81.11:5500/concurrent_execute_task_new/face_alignment"
     video_cap = cv2.VideoCapture('traffic-720p.mp4')  # input.mov

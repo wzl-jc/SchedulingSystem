@@ -292,7 +292,7 @@ res = ["face_detection", "face_alignment", "car_detection"]
     }
 }
 ```
-#### 五、增加某类任务工作进程的接口：
+#### 五、增加/减少某类任务工作进程的接口：
 * server/client端接口如下：
 ```url
 /add_work_process  methods=["POST"]
@@ -308,6 +308,16 @@ res = ["face_detection", "face_alignment", "car_detection"]
     }
 }
 ```
+```url
+/decrease_work_process  methods=["POST"]
+```
+* 发起请求的json格式说明如下：
+```json5
+{
+    "task_name": "car_detection",  // 任务名
+}
+```
+
 #### 六、设置某个工作进程占用资源的接口：
 * server/client端接口如下：
 ```url

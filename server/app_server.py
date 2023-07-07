@@ -216,7 +216,7 @@ def trigger_update_clients_status():
 class ServerManager(object):
     def __init__(self):
         # 云端系统配置相关
-        self.server_ip = '127.0.0.1'  # 默认设置需要与服务器ip保持一致，供定时事件使用
+        self.server_ip = '114.212.81.11'  # 默认设置需要与服务器ip保持一致，供定时事件使用
         self.server_port = 5500
         self.edge_ip_set = set()  # 存放所有边缘端的ip，用于向边缘端发送请求
         self.edge_port = 5500  # 边缘端服务器的端口号，所有边缘端统一
@@ -608,6 +608,7 @@ def upload_json_and_codefiles_api():
         received_files = request.files
         task_json = received_files.get('task_json')  # 用户提交的json文件，前端的key为'task_json'
         task_dict = json.load(task_json)
+        task_dict['task_code_path'] = dict()  # 存储各个阶段代码的路径，以精简json文件
 
         for file in received_files:   # file为前端设置的、各个文件的key，为任务中各个阶段的名字，与代码文件对应
             if file == 'task_json':
@@ -653,6 +654,88 @@ def register_edge():
 
 @app.route('/execute_task/<string:task_name>', methods=['POST'])
 def execute_task(task_name):
+    # 始终为并发执行、配合最新应用软件的接口，配合调度器
+    output_ctx = dict()
+    if task_name in server_manager.process_dict:
+        input_ctx = request.get_json()
+        if task_name == 'face_detection':
+            input_ctx['image'] = decode_image(input_ctx['image'])
+            server_manager.input_queue_dict[task_name][0].put(input_ctx)  # detection任务单进程执行
+            output_ctx = server_manager.output_queue_dict[task_name][0].get()
+            for i in range(len(output_ctx['faces'])):
+                output_ctx['faces'][i] = encode_image(output_ctx['faces'][i])
+            output_ctx['proc_resource_info']['cpu_util_limit'] = server_manager.get_process_cpu_util_limit(
+                                                                 output_ctx['proc_resource_info']['pid'])
+            output_ctx['proc_resource_info_list'] = [output_ctx['proc_resource_info']]
+            del output_ctx['proc_resource_info']
+        elif task_name == 'face_alignment':
+            for i in range(len(input_ctx['faces'])):
+                input_ctx['faces'][i] = decode_image(input_ctx['faces'][i])
+            task_num = len(input_ctx['faces'])  # 任务数量
+            work_process_num = len(server_manager.process_dict[task_name])  # 执行该任务的工作进程数量
+            output_ctx_list = []
+            proc_resource_info_list = []
+            if task_num <= work_process_num:  # 任务数量小于工作进程数量，则并发的分给各个进程，每个进程执行一个任务
+                # 将任务并发的分发给各个工作进程
+                for i in range(task_num):
+                    temp_input_ctx = dict()
+                    temp_input_ctx['faces'] = [input_ctx['faces'][i]]
+                    temp_input_ctx['bbox'] = [input_ctx['bbox'][i]]
+                    temp_input_ctx['prob'] = []
+                    server_manager.input_queue_dict[task_name][i].put(temp_input_ctx)
+                # 按序获取各个工作进程的执行结果
+                for i in range(task_num):
+                    temp_output_ctx = server_manager.output_queue_dict[task_name][i].get()
+                    output_ctx_list.append(temp_output_ctx)
+            else:
+                ave_task_num = int(task_num / work_process_num)  # 平均每个进程要执行的任务数量
+                more_task_num = task_num % work_process_num  # more_task_num个进程要做ave_task_num+1个任务
+                # 将任务并发的分发给各个工作进程
+                for i in range(more_task_num):
+                    temp_input_ctx = dict()
+                    temp_start_index = i * (ave_task_num + 1)
+                    temp_end_index = (i + 1) * (ave_task_num + 1)
+                    temp_input_ctx['faces'] = input_ctx['faces'][temp_start_index:temp_end_index]
+                    temp_input_ctx['bbox'] = input_ctx['bbox'][temp_start_index:temp_end_index]
+                    temp_input_ctx['prob'] = []
+                    server_manager.input_queue_dict[task_name][i].put(temp_input_ctx)
+                for i in range(more_task_num, work_process_num):
+                    temp_input_ctx = dict()
+                    temp_start_index = more_task_num * (ave_task_num + 1) + (i - more_task_num) * ave_task_num
+                    temp_end_index = more_task_num * (ave_task_num + 1) + (i - more_task_num + 1) * ave_task_num
+                    temp_input_ctx['faces'] = input_ctx['faces'][temp_start_index:temp_end_index]
+                    temp_input_ctx['bbox'] = input_ctx['bbox'][temp_start_index:temp_end_index]
+                    temp_input_ctx['prob'] = []
+                    server_manager.input_queue_dict[task_name][i].put(temp_input_ctx)
+                # 按序获取各个工作进程的执行结果
+                for i in range(work_process_num):
+                    temp_output_ctx = server_manager.output_queue_dict[task_name][i].get()
+                    output_ctx_list.append(temp_output_ctx)
+            output_ctx["count_result"] = {"up": 0, "total": 0}
+            for t_output_ctx in output_ctx_list:
+                output_ctx["count_result"]["up"] += t_output_ctx["count_result"]["up"]
+                output_ctx["count_result"]["total"] += t_output_ctx["count_result"]["total"]
+                t_output_ctx['proc_resource_info']['cpu_util_limit'] = server_manager.get_process_cpu_util_limit(
+                                                                       t_output_ctx['proc_resource_info']['pid'])
+                proc_resource_info_list.append(t_output_ctx['proc_resource_info'])
+            output_ctx['proc_resource_info_list'] = proc_resource_info_list
+        else:
+            input_ctx['image'] = decode_image(input_ctx['image'])
+            server_manager.input_queue_dict[task_name][0].put(input_ctx)  # detection任务单进程执行
+            output_ctx = server_manager.output_queue_dict[task_name][0].get()
+            output_ctx['proc_resource_info']['cpu_util_limit'] = server_manager.get_process_cpu_util_limit(
+                output_ctx['proc_resource_info']['pid'])
+            output_ctx['proc_resource_info_list'] = [output_ctx['proc_resource_info']]
+            del output_ctx['proc_resource_info']
+
+        output_ctx['execute_flag'] = True
+    else:
+        output_ctx['execute_flag'] = False
+    return jsonify(output_ctx)
+
+
+@app.route('/execute_task_old/<string:task_name>', methods=['POST'])
+def execute_task_old(task_name):
     # 最初版本的任务执行接口（配合最初版本的face_detection封装代码）
     output_ctx = dict()
     if task_name in server_manager.process_dict:

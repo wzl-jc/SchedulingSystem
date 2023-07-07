@@ -620,6 +620,87 @@ def task_register():
     return res
 
 
+@app.route('/execute_task/<string:task_name>', methods=['POST'])
+def execute_task(task_name):
+    # 始终为并发执行、配合最新应用软件的接口，配合调度器
+    output_ctx = dict()
+    if task_name in client_manager.process_dict:
+        input_ctx = request.get_json()
+        if task_name == 'face_detection':
+            input_ctx['image'] = decode_image(input_ctx['image'])
+            client_manager.input_queue_dict[task_name][0].put(input_ctx)  # detection任务单进程执行
+            output_ctx = client_manager.output_queue_dict[task_name][0].get()
+            for i in range(len(output_ctx['faces'])):
+                output_ctx['faces'][i] = encode_image(output_ctx['faces'][i])
+            output_ctx['proc_resource_info']['cpu_util_limit'] = client_manager.get_process_cpu_util_limit(
+                output_ctx['proc_resource_info']['pid'])
+            output_ctx['proc_resource_info_list'] = [output_ctx['proc_resource_info']]
+            del output_ctx['proc_resource_info']
+        elif task_name == 'face_alignment':
+            for i in range(len(input_ctx['faces'])):
+                input_ctx['faces'][i] = decode_image(input_ctx['faces'][i])
+            task_num = len(input_ctx['faces'])  # 任务数量
+            work_process_num = len(client_manager.process_dict[task_name])  # 执行该任务的工作进程数量
+            output_ctx_list = []
+            proc_resource_info_list = []
+            if task_num <= work_process_num:  # 任务数量小于工作进程数量，则并发的分给各个进程，每个进程执行一个任务
+                # 将任务并发的分发给各个工作进程
+                for i in range(task_num):
+                    temp_input_ctx = dict()
+                    temp_input_ctx['faces'] = [input_ctx['faces'][i]]
+                    temp_input_ctx['bbox'] = [input_ctx['bbox'][i]]
+                    temp_input_ctx['prob'] = []
+                    client_manager.input_queue_dict[task_name][i].put(temp_input_ctx)
+                # 按序获取各个工作进程的执行结果
+                for i in range(task_num):
+                    temp_output_ctx = client_manager.output_queue_dict[task_name][i].get()
+                    output_ctx_list.append(temp_output_ctx)
+            else:
+                ave_task_num = int(task_num / work_process_num)  # 平均每个进程要执行的任务数量
+                more_task_num = task_num % work_process_num  # more_task_num个进程要做ave_task_num+1个任务
+                # 将任务并发的分发给各个工作进程
+                for i in range(more_task_num):
+                    temp_input_ctx = dict()
+                    temp_start_index = i * (ave_task_num + 1)
+                    temp_end_index = (i + 1) * (ave_task_num + 1)
+                    temp_input_ctx['faces'] = input_ctx['faces'][temp_start_index:temp_end_index]
+                    temp_input_ctx['bbox'] = input_ctx['bbox'][temp_start_index:temp_end_index]
+                    temp_input_ctx['prob'] = []
+                    client_manager.input_queue_dict[task_name][i].put(temp_input_ctx)
+                for i in range(more_task_num, work_process_num):
+                    temp_input_ctx = dict()
+                    temp_start_index = more_task_num * (ave_task_num + 1) + (i - more_task_num) * ave_task_num
+                    temp_end_index = more_task_num * (ave_task_num + 1) + (i - more_task_num + 1) * ave_task_num
+                    temp_input_ctx['faces'] = input_ctx['faces'][temp_start_index:temp_end_index]
+                    temp_input_ctx['bbox'] = input_ctx['bbox'][temp_start_index:temp_end_index]
+                    temp_input_ctx['prob'] = []
+                    client_manager.input_queue_dict[task_name][i].put(temp_input_ctx)
+                # 按序获取各个工作进程的执行结果
+                for i in range(work_process_num):
+                    temp_output_ctx = client_manager.output_queue_dict[task_name][i].get()
+                    output_ctx_list.append(temp_output_ctx)
+            output_ctx["count_result"] = {"up": 0, "total": 0}
+            for t_output_ctx in output_ctx_list:
+                output_ctx["count_result"]["up"] += t_output_ctx["count_result"]["up"]
+                output_ctx["count_result"]["total"] += t_output_ctx["count_result"]["total"]
+                t_output_ctx['proc_resource_info']['cpu_util_limit'] = client_manager.get_process_cpu_util_limit(
+                    t_output_ctx['proc_resource_info']['pid'])
+                proc_resource_info_list.append(t_output_ctx['proc_resource_info'])
+            output_ctx['proc_resource_info_list'] = proc_resource_info_list
+        elif task_name == 'car_detection':
+            input_ctx['image'] = decode_image(input_ctx['image'])
+            client_manager.input_queue_dict[task_name][0].put(input_ctx)  # detection任务单进程执行
+            output_ctx = client_manager.output_queue_dict[task_name][0].get()
+            output_ctx['proc_resource_info']['cpu_util_limit'] = client_manager.get_process_cpu_util_limit(
+                output_ctx['proc_resource_info']['pid'])
+            output_ctx['proc_resource_info_list'] = [output_ctx['proc_resource_info']]
+            del output_ctx['proc_resource_info']
+        output_ctx['execute_flag'] = True
+    else:
+        output_ctx['execute_flag'] = False
+    return jsonify(output_ctx)
+
+
 @app.route('/concurrent_execute_task_new/<string:task_name>', methods=['POST'])
 def concurrent_execute_task_new(task_name):
     # 新版本的任务并行执行接口（配合新版本的face_detection封装代码，多目标任务并行执行并汇总结果）
