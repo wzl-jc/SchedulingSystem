@@ -76,13 +76,8 @@ def my_plot_func_1():
     list1 = []
     for i in range(180):
         list1.append(1)
-    for i in range(90):
+    for i in range(307):
         list1.append(2)
-    for i in range(90):
-        list1.append(3)
-    for i in range(490):
-        list1.append(2)
-
 
     fig, ax = plt.subplots()  # 创建图实例
     x = np.linspace(1, len(list1), len(list1))  # 创建x的取值范围
@@ -91,16 +86,16 @@ def my_plot_func_1():
     # ax.plot(x, csv_data_2[1], label='5%')
     # ax.plot(x, csv_data_3[1], label='10%')
     # ax.plot(x, csv_data_4[1], label='15%')
-    ax.plot(x, list1, label='tx2')
+    ax.plot(x, list1, label='face_alignment, cloud')
     # ax.plot(x, list2, label='cloud')
     # ax.plot(x, csv_data_6[1], label='50%')
 
-    ax.set_xlabel('frame index')  # 设置x轴名称 x label
-    ax.set_ylabel('process num')  # 设置y轴名称 y label
-    ax.set_title('process num--frame index')  # 设置图名为Simple Plot
+    ax.set_xlabel('Frame Index')  # 设置x轴名称 x label
+    ax.set_ylabel('Process Number')  # 设置y轴名称 y label
+    ax.set_title('Process Number vs Frame Index')  # 设置图名为Simple Plot
     ax.legend()  # 自动检测要在图例中显示的元素，并且显示
 
-    plt.ylim((0, 5))
+    plt.ylim((0, 4))
     plt.show()  # 图形可视化
 
 # if __name__ == '__main__':
@@ -259,7 +254,7 @@ def my_plot_func_1():
 #     plot_func(csv_path, csv_name, csv_dir)
 
 
-
+'''
 if __name__ == '__main__':
     # 测试获取结果的接口
     headers = {"Content-type": "application/json"}
@@ -313,12 +308,12 @@ if __name__ == '__main__':
     # 画图
     print("Start draw!")
     plot_func(csv_path, csv_name, csv_dir)
-
-
 '''
+
+
 if __name__ == '__main__':
     my_plot_func_1()
-'''
+
 
 
 

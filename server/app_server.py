@@ -564,6 +564,40 @@ class ServerManager(object):
 
         return cluster_info
 
+    def get_execute_url(self, task_name):
+        res = dict()
+        # 边缘端可执行任务的接口
+        for edge_ip in self.edge_ip_set:
+            edge_ip_port = edge_ip + ':' + str(self.edge_port)
+            edge_url = "http://" + edge_ip_port + "/execute_task/" + task_name
+            edge_dict = {
+                "url": edge_url
+            }
+            # 由于云端是定期请求边缘端的资源情况的，因此在第一次请求之前边缘端的资源情况为空，需要进行特判
+            if "mem_ratio" in self.clients_status[edge_ip]:
+                edge_dict["mem_ratio"] = self.clients_status[edge_ip]["mem_ratio"]
+            if "cpu_ratio" in self.clients_status[edge_ip]:
+                edge_dict["cpu_ratio"] = self.clients_status[edge_ip]["cpu_ratio"]
+            if "n_cpu" in self.clients_status[edge_ip]:
+                edge_dict["n_cpu"] = self.clients_status[edge_ip]["n_cpu"]
+            res[edge_ip] = edge_dict
+
+        # 服务端可执行任务的接口
+        server_ip_port = self.server_ip + ':' + str(self.server_port)
+        server_url = "http://" + server_ip_port + "/execute_task/" + task_name
+        server_dict = {
+            "url": server_url
+        }
+        if "mem_ratio" in self.server_status:
+            server_dict["mem_ratio"] = self.server_status["mem_ratio"]
+        if "cpu_ratio" in self.server_status:
+            server_dict["cpu_ratio"] = self.server_status["cpu_ratio"]
+        if "n_cpu" in self.server_status:
+            server_dict["n_cpu"] = self.server_status["n_cpu"]
+        res[self.server_ip] = server_dict
+
+        return res
+
 
 class ServerAppConfig(object):
     # flask定时任务的配置类
@@ -578,7 +612,7 @@ class ServerAppConfig(object):
             'id': 'job2',
             'func': 'app_server:trigger_update_clients_status',
             'trigger': 'interval',  # 间隔触发
-            'seconds': 29,  # 定时器时间间隔
+            'seconds': 17,  # 定时器时间间隔
         }
     ]
     SCHEDULER_API_ENABLED = True
@@ -887,42 +921,11 @@ def get_service_list():
     return jsonify(service_list)
 
 
-'''
 @app.route('/get_execute_url/<string:task_name>')
-def get_execute_url_list(task_name):
+def get_execute_url(task_name):
     # 获取任务task_name在系统中所有计算服务调用的url
-    res = dict()
-    # 边缘端可执行任务的接口
-    for edge_ip in server_manager.edge_ip_set:
-        edge_ip_port = edge_ip + ':' + str(server_manager.edge_port)
-        edge_url = "http://" + edge_ip_port + "/execute_task/" + task_name
-        edge_mem_resource = 1
-        edge_cpu_resource = 1
-        edge_bandwidth_resource = 1
-        edge_dict = {
-            "url": edge_url,
-            "mem": edge_mem_resource,
-            "cpu": edge_cpu_resource,
-            "bandwidth": edge_bandwidth_resource
-        }
-        res[edge_ip_port] = edge_dict
-
-    # 服务端可执行任务的接口
-    server_ip_port = server_manager.server_ip + ':' + str(server_manager.server_port)
-    server_url = "http://" + server_ip_port + "/execute_task/" + task_name
-    server_mem_resource = 1
-    server_cpu_resource = 1
-    server_bandwidth_resource = 1
-    server_dict = {
-        "url": server_url,
-        "mem": server_mem_resource,
-        "cpu": server_cpu_resource,
-        "bandwidth": server_bandwidth_resource
-    }
-    res[server_ip_port] = server_dict
-
+    res = server_manager.get_execute_url(task_name)
     return jsonify(res)
-'''
 
 
 @app.route("/update_server_status")
