@@ -1,3 +1,5 @@
+import time
+
 import cv2
 import requests
 import json
@@ -61,7 +63,7 @@ def my_plot_func():
     # ax.plot(x, csv_data_4[1], label='15%')
     ax.plot(x, csv_data_5[16], label='1 proc; cpu_util: 25%')
     # ax.plot(x, csv_data_6[1], label='50%')
-    ax.plot(x, csv_data_8[16] / 2 + 0.02, label='2 proc; cpu_util: 25%')
+    ax.plot(x, csv_data_8[16], label='2 proc; cpu_util: 25%')
 
     ax.set_xlabel('frame index')  # 设置x轴名称 x label
     ax.set_ylabel('latency')  # 设置y轴名称 y label
@@ -229,14 +231,13 @@ def my_plot_func():
 #     plot_func(csv_path, csv_name, csv_dir)
 
 
-'''
 if __name__ == '__main__':
     # 测试获取结果的接口
     headers = {"Content-type": "application/json"}
-    task_url = "http://127.0.0.1:5500/execute_task/car_detection"
-    # task_url = "http://114.212.81.11:5500/concurrent_execute_task_new/face_detection"
-    # task_url_1 = "http://114.212.81.11:5500/concurrent_execute_task_new/face_alignment"
-    video_cap = cv2.VideoCapture('traffic-720p.mp4')  # input.mov
+    # task_url = "http://127.0.0.1:5500/execute_task/car_detection"
+    task_url = "http://172.27.152.177:5500/execute_task/face_detection"   # 172.27.152.177 114.212.81.11
+    task_url_1 = "http://172.27.152.177:5500/execute_task/face_alignment"
+    video_cap = cv2.VideoCapture('meeting-room.mp4')  # input.mov
     ret, frame = video_cap.read()
 
     obj_num_list = []
@@ -252,17 +253,22 @@ if __name__ == '__main__':
             output_ctx_1 = requests.post(task_url, data=json.dumps(input_ctx_1), headers=headers).text
             output_ctx_1 = json.loads(output_ctx_1)
             print(output_ctx_1.keys())
-            print(output_ctx_1)
 
             # print(output_ctx_1['proc_resource_info_list'])
-            # obj_num_list.append(len(output_ctx_1['faces']))
-            # # d_latency_list.append(output_ctx_1['latency'])
-            #
-            # input_ctx_2 = output_ctx_1
-            # output_ctx_2 = requests.post(task_url_1, data=json.dumps(input_ctx_2), headers=headers).text
-            # output_ctx_2 = json.loads(output_ctx_2)
-            # print(output_ctx_2)
-            # # a_latency_list.append(output_ctx_2['latency'])
+            obj_num_list.append(len(output_ctx_1['faces']))
+            d_latency = 0
+            for proc_info in output_ctx_1['proc_resource_info_list']:
+                d_latency = max(d_latency, proc_info['latency'])  # 以各个工作进程中执行时延的最大值作为任务执行的时延
+            d_latency_list.append(d_latency)
+
+            input_ctx_2 = output_ctx_1
+            output_ctx_2 = requests.post(task_url_1, data=json.dumps(input_ctx_2), headers=headers).text
+            output_ctx_2 = json.loads(output_ctx_2)
+            print(output_ctx_2.keys())
+            a_latency = 0
+            for proc_info in output_ctx_2['proc_resource_info_list']:
+                a_latency = max(a_latency, proc_info['latency'])  # 以各个工作进程中执行时延的最大值作为任务执行的时延
+            a_latency_list.append(a_latency)
 
             count += 1
             print("finish {} frame!".format(count))
@@ -283,8 +289,63 @@ if __name__ == '__main__':
     # 画图
     print("Start draw!")
     plot_func(csv_path, csv_name, csv_dir)
+
 '''
+if __name__ == '__main__':
+    # 测试获取结果的接口
+    headers = {"Content-type": "application/json"}
+    # task_url = "http://127.0.0.1:5500/execute_task/car_detection"
+    task_url = "http://172.27.152.177:5500/execute_task/face_detection"  # 172.27.152.177 114.212.81.11
+    task_url_1 = "http://172.27.152.177:5500/execute_task/face_alignment"
+    video_cap = cv2.VideoCapture('meeting-room.mp4')  # input.mov
+    ret, frame = video_cap.read()
 
+    obj_num_list = []
+    d_latency_list = []
+    a_latency_list = []
+    count = 0
 
+    while ret:
+        ret, frame = video_cap.read()
+        if frame is not None:
+            input_ctx_1 = dict()
+            input_ctx_1['image'] = encode_image(frame)
+            d_start = time.time()
+            output_ctx_1 = requests.post(task_url, data=json.dumps(input_ctx_1), headers=headers).text
+            d_end = time.time()
+            output_ctx_1 = json.loads(output_ctx_1)
+            print(output_ctx_1.keys())
 
+            # print(output_ctx_1['proc_resource_info_list'])
+            obj_num_list.append(len(output_ctx_1['faces']))
+            d_latency_list.append(d_end - d_start)
+
+            input_ctx_2 = output_ctx_1
+            a_start = time.time()
+            output_ctx_2 = requests.post(task_url_1, data=json.dumps(input_ctx_2), headers=headers).text
+            a_end = time.time()
+            output_ctx_2 = json.loads(output_ctx_2)
+            print(output_ctx_2.keys())
+            a_latency_list.append(a_end - a_start)
+
+            count += 1
+            print("finish {} frame!".format(count))
+            if count >= 200:
+                break
+
+    all_res_list = [obj_num_list,  # 0
+                    d_latency_list,  # 1
+                    a_latency_list  # 2
+                    ]
+    all_res_arr = np.array(all_res_list)
+    csv_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    csv_dir = 'csv_data/' + csv_name + '/'
+    if not os.path.exists(csv_dir):
+        os.makedirs(csv_dir)
+    csv_path = csv_dir + csv_name + '.csv'
+    pd.DataFrame(all_res_arr).to_csv(csv_path, header=False, index=False)
+    # 画图
+    print("Start draw!")
+    plot_func(csv_path, csv_name, csv_dir)
+'''
 

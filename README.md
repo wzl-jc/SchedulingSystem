@@ -1,4 +1,14 @@
-### 代码结构说明：
+# SchedulingSystem
+### 1 大致结构
+云端运行`app_server.py`，在5500端口提供服务；
+
+边端运行`app_client.py`，在5500端口提供服务；
+
+系统整体结构如下图所示。本仓库为下图中的`软件下装与情境感知系统`，此外情境感知在`video-dag-manager`仓库中也有部分实现。
+
+![queue_manager和job_manager线程模型](./img/SystemStructure.png)
+
+### 2 代码结构说明：
 ```
 SchedulingSystem
 |--README.md
@@ -16,7 +26,7 @@ SchedulingSystem
 |--|--app_client.py  // 边端入口文件
 |--|--field_codec_utils.py  // 图像编解码工具文件
 ```
-### 系统启动方式：
+### 3 系统启动方式：
 * 启动云端，执行命令如下：
 ```shell
 # --server_ip指定云端提供服务的ip，设置为服务器的公网ip
@@ -32,6 +42,10 @@ python3 app_server.py --server_ip=114.212.81.11 --server_port=5500 --edge_port=5
 # --edge_port指定边端提供服务的port
 python3 app_client.py --server_ip=114.212.81.11 --server_port=5500 --edge_ip=0.0.0.0 --edge_port=5500
 ```
+
+### 4 补充说明：
+在`video-dag-manager`仓库中的`service_demo.py`其实充当了本仓库的作用，是为了方便调度器调试代码pqh自己写的，所以调调度算法的时候可以先不跑本仓库的代码。
+但最终要实现两部分代码合并运行。
 
 
 
