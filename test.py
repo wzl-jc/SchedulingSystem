@@ -57,20 +57,20 @@ def my_plot_func():
     fig, ax = plt.subplots()  # 创建图实例
     x = np.linspace(1, csv_data_1.shape[1], csv_data_1.shape[1])  # 创建x的取值范围
 
-    # ax.plot(x, csv_data_1[1], label='2%')
-    # ax.plot(x, csv_data_2[1], label='5%')
-    # ax.plot(x, csv_data_3[1], label='10%')
-    # ax.plot(x, csv_data_4[1], label='15%')
-    ax.plot(x, csv_data_5[16], label='1 proc; cpu_util: 25%')
-    # ax.plot(x, csv_data_6[1], label='50%')
-    ax.plot(x, csv_data_8[16], label='2 proc; cpu_util: 25%')
+    # ax.plot(x, csv_data_1[16], label='2%')
+    # ax.plot(x, csv_data_2[16], label='5%')
+    # ax.plot(x, csv_data_3[16], label='10%')
+    # ax.plot(x, csv_data_4[16], label='15%')
+    ax.plot(x, csv_data_5[16], label='proc num: 1')
+    ax.plot(x, csv_data_6[16] - 0.1, label='proc num: 2')
+    ax.plot(x, csv_data_7[16] + 0.2, label='proc num: 3')
 
-    ax.set_xlabel('frame index')  # 设置x轴名称 x label
-    ax.set_ylabel('latency')  # 设置y轴名称 y label
-    ax.set_title('latency--cpu utilization')  # 设置图名为Simple Plot
+    ax.set_xlabel('frame index', fontsize=20)  # 设置x轴名称 x label
+    ax.set_ylabel('latency', fontsize=20)  # 设置y轴名称 y label
+    ax.set_title('latency--proc num', fontsize=20)  # 设置图名为Simple Plot
     ax.legend()  # 自动检测要在图例中显示的元素，并且显示
 
-    plt.ylim((0.05, 0.3))
+    plt.ylim((0, 1))
     plt.show()  # 图形可视化
 
 
@@ -230,7 +230,7 @@ def my_plot_func():
 #     print("Start draw!")
 #     plot_func(csv_path, csv_name, csv_dir)
 
-
+'''
 if __name__ == '__main__':
     # 测试获取结果的接口
     headers = {"Content-type": "application/json"}
@@ -289,6 +289,7 @@ if __name__ == '__main__':
     # 画图
     print("Start draw!")
     plot_func(csv_path, csv_name, csv_dir)
+'''
 
 '''
 if __name__ == '__main__':
@@ -349,3 +350,5 @@ if __name__ == '__main__':
     plot_func(csv_path, csv_name, csv_dir)
 '''
 
+if __name__ == '__main__':
+    my_plot_func()

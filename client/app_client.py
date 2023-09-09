@@ -1,3 +1,4 @@
+import platform
 import time
 from flask_apscheduler import APScheduler
 from flask_cors import CORS
@@ -517,17 +518,16 @@ class ClientManager(object):
         self.client_status['cpu_ratio'] = psutil.cpu_percent(interval=None, percpu=False)  # 所有cpu的使用率
         self.client_status['n_cpu'] = self.cpu_count
         self.client_status['mem_ratio'] = psutil.virtual_memory().percent
-        '''
-        client_manager.client_status['swap_ratio'] = psutil.swap_memory().percent
+
+        self.client_status['swap_ratio'] = psutil.swap_memory().percent
         # 发起请求时再对网络情况进行采样
         old_net_bytes = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
-        sec_interval = 1.0
+        sec_interval = 0.3
         time.sleep(sec_interval)
         new_net_bytes = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
-        client_manager.client_status['net_ratio(MBps)'] = round((new_net_bytes - old_net_bytes) / (1024.0 * 1024)
+        self.client_status['net_ratio(MBps)'] = round((new_net_bytes - old_net_bytes) / (1024.0 * 1024)
                                                                 / sec_interval, 5)
-        '''
-        '''
+
         # 获取GPU使用情况
         # 不同类型设备的GPU使用方式不同，统计方式也不同
         gpu_mem = dict()
@@ -554,9 +554,9 @@ class ClientManager(object):
                 gpu_mem[str(i)] = memory_info.used / memory_info.total * 100  # GPU i的显存占用比例
                 gpu_utilization[str(i)] = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu  # GPU i 计算能力的使用率，
             pynvml.nvmlShutdown()  # 最后关闭管理工具
-        client_manager.client_status['gpu_mem'] = gpu_mem
-        client_manager.client_status['gpu_utilization'] = gpu_utilization
-        '''
+        self.client_status['gpu_mem'] = gpu_mem
+        self.client_status['gpu_utilization'] = gpu_utilization
+
         # 更新边缘端各类工作进程的信息
         # print(server_manager.process_dict)
         '''

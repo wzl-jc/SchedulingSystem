@@ -1,3 +1,5 @@
+import platform
+
 import requests
 from flask import Flask, make_response, request, render_template, jsonify, send_from_directory
 import json
@@ -468,17 +470,16 @@ class ServerManager(object):
         self.server_status['cpu_ratio'] = psutil.cpu_percent(interval=None, percpu=False)  # 所有cpu的使用率
         self.server_status['n_cpu'] = self.cpu_count
         self.server_status['mem_ratio'] = psutil.virtual_memory().percent
-        '''
+
         self.server_status['swap_ratio'] = psutil.swap_memory().percent
         # 发起请求时再对网络情况进行采样
         old_net_bytes = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
-        sec_interval = 1.0
+        sec_interval = 0.3
         time.sleep(sec_interval)
         new_net_bytes = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
         self.server_status['net_ratio(MBps)'] = round((new_net_bytes - old_net_bytes) / (1024.0 * 1024)
                                                                 / sec_interval, 5)
-        '''
-        '''
+
         # 获取GPU使用情况
         # 不同类型设备的GPU使用方式不同，统计方式也不同
         gpu_mem = dict()
@@ -507,7 +508,7 @@ class ServerManager(object):
             pynvml.nvmlShutdown()  # 最后关闭管理工具
         self.server_status['gpu_mem'] = gpu_mem
         self.server_status['gpu_utilization'] = gpu_utilization
-        '''
+
         # 更新云端各类工作进程的信息
         '''
         for task_name in self.process_dict.keys():
