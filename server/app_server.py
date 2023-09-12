@@ -482,19 +482,21 @@ class ServerManager(object):
 
         # 获取GPU使用情况
         # 不同类型设备的GPU使用方式不同，统计方式也不同
-        gpu_mem = dict()
-        gpu_utilization = dict()
+        gpu_mem_total = dict()
+        gpu_mem_utilization = dict()
+        gpu_compute_utilization = dict()
         if platform.uname().machine[0:5] == 'aarch':
             from jtop import jtop
             with jtop() as jetson:
                 while jetson.ok():
-                    gpu_utilization['0'] = jetson.stats['GPU']  # 计算负载百分比，5，7
+                    gpu_compute_utilization['0'] = jetson.stats['GPU']  # 计算负载百分比，5，7
                     gpu_total_mem = 3.9 * 1024 * 1024   # nano显存总量为3.9G，未找到获取显存总量的api，直接写死，单位kB
+                    gpu_mem_total['0'] = 3.9
                     process_list = jetson.processes
                     gpu_used_mem = 0
                     for pro in process_list:
                         gpu_used_mem += pro[-2]  # 进程占用的显存大小，单位kB
-                    gpu_mem['0'] = gpu_used_mem / gpu_total_mem * 100  # 百分比
+                    gpu_mem_utilization['0'] = gpu_used_mem / gpu_total_mem * 100  # 百分比
                     break
         else:
             import pynvml
@@ -503,11 +505,13 @@ class ServerManager(object):
             for i in range(gpu_device_count):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)  # 获取GPU i的handle，后续通过handle来处理
                 memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)  # 通过handle获取GPU i的信息
-                gpu_mem[str(i)] = memory_info.used / memory_info.total * 100  # GPU i的显存占用比例
-                gpu_utilization[str(i)] = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu  # GPU i 计算能力的使用率，百分比
+                gpu_mem_utilization[str(i)] = memory_info.used / memory_info.total * 100  # GPU i的显存占用比例
+                gpu_compute_utilization[str(i)] = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu  # GPU i 计算能力的使用率，百分比
+                gpu_mem_total[str(i)] = memory_info.total / 1024 / 1024 / 1024
             pynvml.nvmlShutdown()  # 最后关闭管理工具
-        self.server_status['gpu_mem'] = gpu_mem
-        self.server_status['gpu_utilization'] = gpu_utilization
+        self.server_status['gpu_mem_utilization'] = gpu_mem_utilization
+        self.server_status['gpu_compute_utilization'] = gpu_compute_utilization
+        self.server_status['gpu_mem_total'] = gpu_mem_total
 
         # 更新云端各类工作进程的信息
         '''
