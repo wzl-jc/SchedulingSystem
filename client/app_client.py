@@ -517,6 +517,7 @@ class ClientManager(object):
     def update_client_status(self):
         self.client_status['cpu_ratio'] = psutil.cpu_percent(interval=None, percpu=False)  # 所有cpu的使用率
         self.client_status['n_cpu'] = self.cpu_count
+        self.client_status['mem_total'] = psutil.virtual_memory().total / 1024 / 1024 / 1024
         self.client_status['mem_ratio'] = psutil.virtual_memory().percent
 
         self.client_status['swap_ratio'] = psutil.swap_memory().percent

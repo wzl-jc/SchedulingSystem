@@ -469,6 +469,7 @@ class ServerManager(object):
     def update_server_status(self):
         self.server_status['cpu_ratio'] = psutil.cpu_percent(interval=None, percpu=False)  # 所有cpu的使用率
         self.server_status['n_cpu'] = self.cpu_count
+        self.server_status['mem_total'] = psutil.virtual_memory().total / 1024 / 1024 / 1024
         self.server_status['mem_ratio'] = psutil.virtual_memory().percent
 
         self.server_status['swap_ratio'] = psutil.swap_memory().percent
