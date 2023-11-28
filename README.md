@@ -42,10 +42,20 @@ python3 app_server.py --server_ip=114.212.81.11 --server_port=5500 --edge_port=5
 # --edge_port指定边端提供服务的port
 python3 app_client.py --server_ip=114.212.81.11 --server_port=5500 --edge_ip=0.0.0.0 --edge_port=5500
 ```
-
+* 如果使用了cgroupspy控制进程资源，则在程序执行结束之后需要执行以下脚本，删除对应的进程控制文件夹：
+```shell
+# 删除/sys/fs/cgroup下各类资源文件夹中的process_xx子文件夹
+sh myclear.sh
+```
 ### 4 补充说明：
-在`video-dag-manager`仓库中的`service_demo.py`其实充当了本仓库的作用，是为了方便调度器调试代码pqh自己写的，所以调调度算法的时候可以先不跑本仓库的代码。
+* 在`video-dag-manager`仓库中的`service_demo.py`其实充当了本仓库的作用，是为了方便调度器调试代码pqh自己写的，所以调调度算法的时候可以先不跑本仓库的代码。
 但最终要实现两部分代码合并运行。
+* 利用cgroupspy对进程进行资源控制时需要有对`/sys/fs/cgroup/`下各类资源文件夹的修改权限，guest用户无法直接操作，可以先切换到hx用户，执行以下指令：
+```shell
+sudo chmod 777 memory
+sudo chmod 777 cpu,cpuacct # 其他资源类似
+```
+机器重启之后上次的权限设置就会失效，因此重启之后需要重新修改权限
 
 
 

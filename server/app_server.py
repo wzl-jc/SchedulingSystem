@@ -1,5 +1,4 @@
 import platform
-
 import requests
 from flask import Flask, make_response, request, render_template, jsonify, send_from_directory
 import json
@@ -96,13 +95,13 @@ def work_func(task_name, q_input, q_output, model_ctx=None):
 
         # cpu占用的计算
         end_cpu_per = p.cpu_percent(interval=None)  # 任务执行后进程的cpu占用率
-        end_cpu_time = p.cpu_times()  # 任务执行后进程的cpu_time
+        # end_cpu_time = p.cpu_times()  # 任务执行后进程的cpu_time
 
-        '''
+
         # 内存消耗的计算
-        end_memory = p.memory_full_info().uss  # 任务执行之后进程占用的内存值，每次执行任务之后都重新计算
-        after_data_memory = p.memory_info().data
-        '''
+        # end_memory = p.memory_full_info().uss  # 任务执行之后进程占用的内存值，每次执行任务之后都重新计算
+        # after_data_memory = p.memory_info().data
+
         '''
         # gpu消耗的计算
         if 'device' in model_ctx and model_ctx['device'] != 'cpu' and torch.cuda.is_available():
@@ -145,7 +144,8 @@ def work_func(task_name, q_input, q_output, model_ctx=None):
         proc_resource_info['pid'] = pid
         # 任务执行的cpu占用率，各个核上占用率之和的百分比->平均每个核的占用率，范围[0,1]
         proc_resource_info['cpu_util_use'] = end_cpu_per / 100 / psutil.cpu_count()
-        proc_resource_info['latency'] = end_time - start_time  # 任务执行的延时
+        proc_resource_info['mem_util_use'] = p.memory_percent(memtype='uss') / 100
+        proc_resource_info['compute_latency'] = end_time - start_time  # 任务执行的延时，单位：秒(s)
 
         output_ctx['proc_resource_info'] = proc_resource_info
         q_output.put(output_ctx)
@@ -244,7 +244,8 @@ class ServerManager(object):
         self.process_cpu_group_dict = dict()  # 记录各个进程对应的cpu cgroup组，key为pid(int), value为group对象
         self.process_cpu_set_group_dict = dict()  # 记录各个进程对应的cpuset cgroup组，key为pid(int), value为group对象
         self.default_resource_limit = {  # 创建工作进程时默认的进程对各类资源的使用上限
-            'cpu_util_limit': 1.0
+            'cpu_util_limit': 1.0,
+            'mem_util_limit': 1.0
         }
         self.resource_limit_dict = dict()  # 记录各类任务各类资源的使用上限，用于在创建新进程时使用，key为任务名，value为dict
 
@@ -271,14 +272,14 @@ class ServerManager(object):
                 self.pid_set.add(temp_process.pid)
                 self.model_ctx_dict[task_name] = task_dict['model_ctx'][task_name]
 
+                self.resource_limit_dict[task_name] = dict()
                 # 使用cgroupspy限制进程使用的资源
-                '''
                 from cgroupspy import trees
                 task_set = set()
                 task_set.add(temp_process.pid)
                 group_name = "process_" + str(temp_process.pid)
                 t = trees.Tree()  # 实例化一个资源树
-                '''
+
                 # 限制进程使用的cpuset
                 # cpuset_resource_item = "cpuset"
                 # cpuset_limit_obj = t.get_node_by_path("/{0}/".format(cpuset_resource_item))  # 获取cpuset配置对象
@@ -290,15 +291,16 @@ class ServerManager(object):
                 # self.process_cpu_set_group_dict[temp_process.pid] = cpuset_group
 
                 # 限制进程使用的内存上限
-                # memory_resource_item = "memory"
-                # memory_limit_obj = t.get_node_by_path("/{0}/".format(memory_resource_item))
-                # memory_group = memory_limit_obj.create_cgroup(group_name)
-                # memory_group.controller.limit_in_bytes = 256 * 1024 * 1024  # 进程初始时设置内存上限为512MB
-                # memory_group.controller.tasks = task_set
-                # self.process_mem_group_dict[temp_process.pid] = memory_group
+                memory_resource_item = "memory"
+                memory_limit_obj = t.get_node_by_path("/{0}/".format(memory_resource_item))
+                memory_group = memory_limit_obj.create_cgroup(group_name)
+                # 进程初始时设置内存上限为可使用全部内存
+                memory_group.controller.limit_in_bytes = int(self.default_resource_limit['mem_util_limit'] * psutil.virtual_memory().total)
+                memory_group.controller.tasks = task_set
+                self.process_mem_group_dict[temp_process.pid] = memory_group
+                self.resource_limit_dict[task_name]['mem_util_limit'] = self.default_resource_limit['mem_util_limit']
 
                 # 限制进程的cpu使用率
-                '''
                 cpu_resource_item = "cpu"
                 cpu_limit_obj = t.get_node_by_path("/{0}/".format(cpu_resource_item))
                 cpu_group = cpu_limit_obj.create_cgroup(group_name)
@@ -307,9 +309,8 @@ class ServerManager(object):
                                                         psutil.cpu_count())
                 cpu_group.controller.tasks = task_set
                 self.process_cpu_group_dict[temp_process.pid] = cpu_group
-                self.resource_limit_dict[task_name] = dict()
                 self.resource_limit_dict[task_name]['cpu_util_limit'] = self.default_resource_limit['cpu_util_limit']
-                '''
+
                 self.work_process_num += 1
 
     def add_work_process(self, task_info):
@@ -430,14 +431,39 @@ class ServerManager(object):
                                                                                        psutil.cpu_count())
                 assert process_resource_info['task_name'] in self.resource_limit_dict
                 self.resource_limit_dict[process_resource_info['task_name']]['cpu_util_limit'] = process_resource_info['cpu_util_limit']
+            if 'mem_util_limit' in process_resource_info and process_resource_info['mem_util_limit'] > 0:
+                self.process_mem_group_dict[process_pid].controller.limit_in_bytes = int(process_resource_info['mem_util_limit'] * psutil.virtual_memory().total)
+                assert process_resource_info['task_name'] in self.resource_limit_dict
+                self.resource_limit_dict[process_resource_info['task_name']]['mem_util_limit'] = process_resource_info[
+                    'mem_util_limit']
             '''
-            if 'mem_limit' in process_resource_info and process_resource_info['mem_limit'] > 0:
-                self.process_mem_group_dict[process_pid].controller.limit_in_bytes = process_resource_info['mem_limit']
             if 'cpu_set_cpus' in process_resource_info and len(process_resource_info['cpu_set_cpus']) > 0:
                 self.process_cpu_set_group_dict[process_pid].controller.cpus = set(process_resource_info['cpu_set_cpus'])
             if 'cpu_set_mems' in process_resource_info and len(process_resource_info['cpu_set_mems']) > 0:
                 self.process_cpu_set_group_dict[process_pid].controller.mems = set(process_resource_info['cpu_set_mems'])
             '''
+            return True
+        else:
+            return False
+
+    def limit_task_resource(self, task_resource_info):
+        task_name = task_resource_info['task_name']
+        if task_name in self.code_set:
+            if 'cpu_util_limit' in task_resource_info and task_resource_info['cpu_util_limit'] > 0:
+                for process_obj in self.process_dict[task_name]:
+                    process_pid = process_obj.pid
+                    self.process_cpu_group_dict[process_pid].controller.cfs_quota_us = int(task_resource_info['cpu_util_limit'] *
+                                                                                           self.process_cpu_group_dict[process_pid].controller.cfs_period_us *
+                                                                                           psutil.cpu_count())
+                assert task_name in self.resource_limit_dict
+                self.resource_limit_dict[task_name]['cpu_util_limit'] = task_resource_info['cpu_util_limit']
+            if 'mem_util_limit' in task_resource_info and task_resource_info['mem_util_limit'] > 0:
+                for process_obj in self.process_dict[task_name]:
+                    process_pid = process_obj.pid
+                    self.process_mem_group_dict[process_pid].controller.limit_in_bytes = int(task_resource_info['mem_util_limit'] * psutil.virtual_memory().total)
+                assert task_name in self.resource_limit_dict
+                self.resource_limit_dict[task_name]['mem_util_limit'] = task_resource_info[
+                    'mem_util_limit']
             return True
         else:
             return False
@@ -449,12 +475,30 @@ class ServerManager(object):
             proc_cfs_quota_us = self.process_cpu_group_dict[proc_pid].controller.cfs_quota_us
             if proc_cfs_quota_us == -1:
                 return 1.0
-            proc_cfs_period_us = self.process_cpu_group_dict[proc_pid].controller.cfs_period_us
+            proc_cfs_period_us = float(self.process_cpu_group_dict[proc_pid].controller.cfs_period_us)
             return proc_cfs_quota_us / self.cpu_count / proc_cfs_period_us
         elif proc_pid in self.pid_set:
             # 该进程在当前机器上运行，但并没有使用cgroup限制资源（即资源无限）
             return 1.0
         return -1  # 表示当前机器上没有这个进程
+
+    def get_process_mem_util_limit(self, proc_pid):
+        # 获取某个进程的mem利用率上限，取值范围[0,1]，-1表示异常情况
+        if proc_pid in self.process_mem_group_dict:
+            # 该进程使用cgroup限制了资源
+            return float(self.process_mem_group_dict[proc_pid].controller.limit_in_bytes) / psutil.virtual_memory().total
+        elif proc_pid in self.pid_set:
+            # 该进程在当前机器上运行，但并没有使用cgroup限制资源（即资源无限）
+            return 1.0
+        return -1  # 表示当前机器上没有这个进程
+
+    def get_task_cpu_util_limit(self, task_name):
+        assert task_name in self.resource_limit_dict
+        return self.resource_limit_dict[task_name]['cpu_util_limit']
+
+    def get_task_mem_util_limit(self, task_name):
+        assert task_name in self.resource_limit_dict
+        return self.resource_limit_dict[task_name]['mem_util_limit']
 
     # 系统状态相关
     def add_edge_ip(self, edge_ip):
@@ -694,80 +738,28 @@ def register_edge():
 
 @app.route('/execute_task/<string:task_name>', methods=['POST'])
 def execute_task(task_name):
-    # 始终为并发执行、配合最新应用软件的接口，配合调度器
+    # 最终供调度模块、任务执行请求服务的接口
     output_ctx = dict()
     if task_name in server_manager.process_dict:
         input_ctx = request.get_json()
         if task_name == 'face_detection':
             input_ctx['image'] = decode_image(input_ctx['image'])
-            server_manager.input_queue_dict[task_name][0].put(input_ctx)  # detection任务单进程执行
+            server_manager.input_queue_dict[task_name][0].put(input_ctx)  # 单进程串行执行所有任务
             output_ctx = server_manager.output_queue_dict[task_name][0].get()
             for i in range(len(output_ctx['faces'])):
                 output_ctx['faces'][i] = encode_image(output_ctx['faces'][i])
-            output_ctx['proc_resource_info']['cpu_util_limit'] = server_manager.get_process_cpu_util_limit(
-                                                                 output_ctx['proc_resource_info']['pid'])
-            output_ctx['proc_resource_info_list'] = [output_ctx['proc_resource_info']]
-            del output_ctx['proc_resource_info']
         elif task_name == 'face_alignment':
             for i in range(len(input_ctx['faces'])):
                 input_ctx['faces'][i] = decode_image(input_ctx['faces'][i])
-            task_num = len(input_ctx['faces'])  # 任务数量
-            work_process_num = len(server_manager.process_dict[task_name])  # 执行该任务的工作进程数量
-            output_ctx_list = []
-            proc_resource_info_list = []
-            if task_num <= work_process_num:  # 任务数量小于工作进程数量，则并发的分给各个进程，每个进程执行一个任务
-                # 将任务并发的分发给各个工作进程
-                for i in range(task_num):
-                    temp_input_ctx = dict()
-                    temp_input_ctx['faces'] = [input_ctx['faces'][i]]
-                    temp_input_ctx['bbox'] = [input_ctx['bbox'][i]]
-                    temp_input_ctx['prob'] = []
-                    server_manager.input_queue_dict[task_name][i].put(temp_input_ctx)
-                # 按序获取各个工作进程的执行结果
-                for i in range(task_num):
-                    temp_output_ctx = server_manager.output_queue_dict[task_name][i].get()
-                    output_ctx_list.append(temp_output_ctx)
-            else:
-                ave_task_num = int(task_num / work_process_num)  # 平均每个进程要执行的任务数量
-                more_task_num = task_num % work_process_num  # more_task_num个进程要做ave_task_num+1个任务
-                # 将任务并发的分发给各个工作进程
-                for i in range(more_task_num):
-                    temp_input_ctx = dict()
-                    temp_start_index = i * (ave_task_num + 1)
-                    temp_end_index = (i + 1) * (ave_task_num + 1)
-                    temp_input_ctx['faces'] = input_ctx['faces'][temp_start_index:temp_end_index]
-                    temp_input_ctx['bbox'] = input_ctx['bbox'][temp_start_index:temp_end_index]
-                    temp_input_ctx['prob'] = []
-                    server_manager.input_queue_dict[task_name][i].put(temp_input_ctx)
-                for i in range(more_task_num, work_process_num):
-                    temp_input_ctx = dict()
-                    temp_start_index = more_task_num * (ave_task_num + 1) + (i - more_task_num) * ave_task_num
-                    temp_end_index = more_task_num * (ave_task_num + 1) + (i - more_task_num + 1) * ave_task_num
-                    temp_input_ctx['faces'] = input_ctx['faces'][temp_start_index:temp_end_index]
-                    temp_input_ctx['bbox'] = input_ctx['bbox'][temp_start_index:temp_end_index]
-                    temp_input_ctx['prob'] = []
-                    server_manager.input_queue_dict[task_name][i].put(temp_input_ctx)
-                # 按序获取各个工作进程的执行结果
-                for i in range(work_process_num):
-                    temp_output_ctx = server_manager.output_queue_dict[task_name][i].get()
-                    output_ctx_list.append(temp_output_ctx)
-            output_ctx["count_result"] = {"up": 0, "total": 0}
-            for t_output_ctx in output_ctx_list:
-                output_ctx["count_result"]["up"] += t_output_ctx["count_result"]["up"]
-                output_ctx["count_result"]["total"] += t_output_ctx["count_result"]["total"]
-                t_output_ctx['proc_resource_info']['cpu_util_limit'] = server_manager.get_process_cpu_util_limit(
-                                                                       t_output_ctx['proc_resource_info']['pid'])
-                proc_resource_info_list.append(t_output_ctx['proc_resource_info'])
-            output_ctx['proc_resource_info_list'] = proc_resource_info_list
-        else:
-            input_ctx['image'] = decode_image(input_ctx['image'])
-            server_manager.input_queue_dict[task_name][0].put(input_ctx)  # detection任务单进程执行
+            server_manager.input_queue_dict[task_name][0].put(input_ctx)  # 单进程串行执行所有任务
             output_ctx = server_manager.output_queue_dict[task_name][0].get()
-            output_ctx['proc_resource_info']['cpu_util_limit'] = server_manager.get_process_cpu_util_limit(
-                output_ctx['proc_resource_info']['pid'])
-            output_ctx['proc_resource_info_list'] = [output_ctx['proc_resource_info']]
-            del output_ctx['proc_resource_info']
-
+        elif task_name == 'car_detection':
+            input_ctx['image'] = decode_image(input_ctx['image'])
+            server_manager.input_queue_dict[task_name][0].put(input_ctx)  # 单进程串行执行所有任务
+            output_ctx = server_manager.output_queue_dict[task_name][0].get()
+        assert isinstance(output_ctx['proc_resource_info'], dict)
+        output_ctx['proc_resource_info']['cpu_util_limit'] = server_manager.get_task_cpu_util_limit(task_name)
+        output_ctx['proc_resource_info']['mem_util_limit'] = server_manager.get_task_mem_util_limit(task_name)
         output_ctx['execute_flag'] = True
     else:
         output_ctx['execute_flag'] = False
@@ -917,6 +909,14 @@ def limit_process_resource():
     process_resource_info = request.get_json()
     limit_res = dict()
     limit_res['limit_flag'] = server_manager.limit_process_resource(process_resource_info)
+    return jsonify(limit_res)
+
+
+@app.route('/limit_task_resource', methods=['POST'])
+def limit_task_resource():
+    task_resource_info = request.get_json()
+    limit_res = dict()
+    limit_res['limit_flag'] = server_manager.limit_task_resource(task_resource_info)
     return jsonify(limit_res)
 
 

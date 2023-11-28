@@ -1,8 +1,12 @@
 ### <center>接口说明文档 </center>
 #### 一、提交数据获取执行结果的接口：
-* 最初版本接口如下（配合最初版本的face_detection封装代码）：
+* 调度模块、任务执行请求服务的接口始终如下：
 ```url
 /execute_task/<string:task_name>  methods=["POST"]
+```
+* 最初版本接口如下（配合最初版本的face_detection封装代码）：
+```url
+/execute_task_old/<string:task_name>  methods=["POST"]
 ```
 * 新版本的任务执行接口（配合新版本的face_detection封装代码）：
 ```url
@@ -161,14 +165,30 @@ task_name_list = ["face_detection", "face_alignment", "car_detection", "helmet_d
 * 另外，为了实现运行时情境感知，所有类型任务的输出json都包含了以下字段：
 ```json5
     {
-        "proc_resource_info_list": [  // 执行当前任务的所有进程的资源消耗情况，list
-            {  // 执行当前任务的某个进程的资源消耗情况
-                "cpu_util_limit": 1.0,  // 进程可以使用的cpu利用率上限（通过cgroup设置）
-                "cpu_util_use": 0.48875,  // 进程在执行任务时的实际cpu利用率
-                "latency": 0.15465092658996582,  // 进程执行该任务的时延 
-                "pid": 3009737  // 进程pid
+        // 任务原本有的输出字段
+        "prob":[],
+        
+        // 资源情境字段，由服务提供侧在服务执行之后添加
+        "proc_resource_info":  { // 执行当前任务的进程的资源消耗情况，dict
+            "cpu_util_limit": 1.0,  // 进程可以使用的cpu利用率上限（通过cgroup设置）
+            "cpu_util_use": 0.48875,  // 进程在执行任务时的实际cpu利用率
+            "mem_util_limit": 1.0,  // 进程可以使用的内存利用率上限（通过cgroup设置）
+            "mem_util_use": 0.48875,  // 进程在执行任务时的实际内存利用率
+            "compute_latency": 0.15465092658996582,  // 进程执行该任务的时延（计算时延）
+            "pid": 3009737,  // 进程pid
+            // 以下字段是由服务调用侧在调用完毕之后添加的
+            "all_latency": 0.5,  // 计算时延+服务调用时延（传输时延）
+            "device_ip": "114.212.81.11"  // 执行节点ip
+        },
+  
+        // 任务可配置参数字段，由服务调用侧添加
+        "task_conf": {
+            "fps": 30,
+            "resolution": {
+                "w": 1920,
+                "h": 1080
             }
-        ]
+        }
     }
 ```
 
@@ -327,54 +347,93 @@ res = ["face_detection", "face_alignment", "car_detection"]
 {
     "pid": 10832,  // 进程pid
     "task_name": "face_detection",  // 任务名称
-    //"mem_limit": 1024000000,  // 进程内存用量上限，单位：byte；-1表示不调整内存限制
+    //"mem_limit": 0.4,  // 进程内存占用率上限，取值[0,1]
+    "cpu_util_limit": 0.45,  // 进程cpu占用率（所有核），取值[0,1]
+    //"cpu_set_cpus":[0, 1],  // 进程使用的cpu，list类型
+    //"cpu_set_mems": [0, 1]  // 进程使用的mem node，list类型
+}
+```
+```url
+/limit_task_resource  methods=["POST"]
+```
+```json5
+{
+    "task_name": "face_detection",  // 任务名称
+    //"mem_limit": 0.4,  // 进程内存占用率上限，取值[0,1]
     "cpu_util_limit": 0.45,  // 进程cpu占用率（所有核），取值[0,1]
     //"cpu_set_cpus":[0, 1],  // 进程使用的cpu，list类型
     //"cpu_set_mems": [0, 1]  // 进程使用的mem node，list类型
 }
 ```
 #### 七、运行时情境相关字段：
-* sniffer.py，函数describe_runtime()，资源情境（runtime_resource变量）：
+* sniffer.py，函数describe_runtime()，runtime_info_list变量：
 ```json5
-{  // 以各个子任务的名字为key，分别获取各个子任务的资源情境
-    "face_detection": {
-        "flow_mapping": {  // 当前子任务调用系统中哪个节点上的计算服务
-            "model_id": 0,
-            "node_ip": "192.168.56.102",
-            // node_role有三种可能：host、edge、cloud，前端只区分cloud和非cloud，非cloud显示为“边端”
-            // host表示在当前节点本地做，cloud表示在云端做，edge表示在其他边缘节点做（边边协同，暂未实现）
-            "node_role": "host" 
+{  // 以各个子任务的名字为key，分别获取各个子任务的运行时情境
+    "face_detection": [
+      {
+        'resource_runtime': {
+          "cpu_util_limit": 1.0,  // 进程可以使用的cpu利用率上限（通过cgroup设置）
+          "cpu_util_use": 0.48875,  // 进程在执行任务时的实际cpu利用率
+          "mem_util_limit": 1.0,  // 进程可以使用的内存利用率上限（通过cgroup设置）
+          "mem_util_use": 0.48875,  // 进程在执行任务时的实际内存利用率
+          "compute_latency": 0.15465092658996582,  // 进程执行该任务的时延（计算时延）
+          "pid": 3009737,  // 进程pid
+          "all_latency": 0.5,  // 计算时延+服务调用时延（传输时延）
+          "device_ip": "114.212.81.11"  // 执行节点ip
         },
-        "proc_resource_info_list": [  // 执行当前任务的所有进程的资源消耗情况，list
-            {  // 执行当前任务的某个进程的资源消耗情况
-                "cpu_util_limit": 1.0,  // 进程可以使用的cpu利用率上限（通过cgroup设置）
-                "cpu_util_use": 0.48875,  // 进程在执行任务时的实际cpu利用率
-                "latency": 0.15465092658996582,  // 进程执行该任务的时延 
-                "pid": 3009737  // 进程pid
-            },
-            {  
-                "cpu_util_limit": 1.0,  
-                "cpu_util_use": 0.2175,  
-                "latency": 0.37465092658996582,   
-                "pid": 3009738 
-            },
-        ]
-    },
-    "face_alignment": {
+        'task_conf': {
+          'fps': 30,
+          'resolution': '720p', 
+          'encoder': 'JPEG'
+        },
+        'work_runtime': {
+          'obj_n': 20
+        }
+      }
+    ],
+    "face_alignment": [
         // 格式同上
-    }
+    ],
+    // 用户对任务整体的执行约束
+    "user_constraint": [
+      {
+        'delay': 0.8,
+        'accuracy': 0.9
+      }
+    ]
 }
 ```
-* sniffer.py，函数describe_runtime()，资源情境（runtime_desc变量）：
+* sniffer.py，函数describe_runtime()，runtime_desc变量：
 ```json5
 {
-    "runtime_resource_info": {
-        "cur_runtime_resource_info": {
-        // 当前调度周期内的资源情境，value即为runtime_resource变量
-        },
-        "pre_runtime_resource_info": {
-        // 前一调度周期内的资源情境，同时传给scheduler，便于对比调整资源的效果，从而决定下一个周期要不要继续调资源配置
-        }
+    "runtime_portrait": {
+        "face_detection": [
+          {
+            'resource_runtime': {
+              "cpu_util_limit": 1.0,  // 进程可以使用的cpu利用率上限（通过cgroup设置）
+              "cpu_util_use": 0.48875,  // 进程在执行任务时的实际cpu利用率
+              "cpu_portrait": 0,  // 计算资源画像，# 0表示强，1表示中，2表示弱
+              "mem_util_limit": 1.0,  // 进程可以使用的内存利用率上限（通过cgroup设置）
+              "mem_util_use": 0.48875,  // 进程在执行任务时的实际内存利用率
+              "mem_portrait": 0,  // 计算资源画像，# 0表示强，1表示中，2表示弱
+              "compute_latency": 0.15465092658996582,  // 进程执行该任务的时延（计算时延）
+              "pid": 3009737,  // 进程pid
+              "all_latency": 0.5,  // 计算时延+服务调用时延（传输时延）
+              "device_ip": "114.212.81.11"  // 执行节点ip
+            },
+            'task_conf': {
+              'fps': 30,
+              'resolution': '720p',
+              'encoder': 'JPEG'
+            },
+            'work_runtime': {
+              'obj_n': 20
+            }
+          }
+        ],
+        "face_alignment": [
+          // 格式同上
+        ]
     },
 }
 ```
