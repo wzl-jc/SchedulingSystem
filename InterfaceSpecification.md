@@ -366,7 +366,8 @@ res = ["face_detection", "face_alignment", "car_detection"]
 }
 ```
 #### 七、运行时情境相关字段：
-* sniffer.py，函数describe_runtime()，runtime_info_list变量：
+* sniffer.py，函数describe_runtime()，runtime_info_list变量（旧版运行时情境在边端做）：
+* query_manager.py，Query类的update_runtime()函数，runtime_info_list变量（新版）
 ```json5
 {  // 以各个子任务的名字为key，分别获取各个子任务的运行时情境
     "face_detection": [
@@ -403,7 +404,8 @@ res = ["face_detection", "face_alignment", "car_detection"]
     ]
 }
 ```
-* sniffer.py，函数describe_runtime()，runtime_desc变量：
+* sniffer.py，函数describe_runtime()，runtime_desc变量（旧版）：
+* query_manager.py，Query类的aggregate_runtime()函数，runtime_desc变量（新版）
 ```json5
 {
     "runtime_portrait": {
