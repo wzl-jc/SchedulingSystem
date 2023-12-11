@@ -347,10 +347,8 @@ res = ["face_detection", "face_alignment", "car_detection"]
 {
     "pid": 10832,  // 进程pid
     "task_name": "face_detection",  // 任务名称
-    //"mem_limit": 0.4,  // 进程内存占用率上限，取值[0,1]
+    //"mem_util_limit": 0.4,  // 进程内存占用率上限，取值[0,1]
     "cpu_util_limit": 0.45,  // 进程cpu占用率（所有核），取值[0,1]
-    //"cpu_set_cpus":[0, 1],  // 进程使用的cpu，list类型
-    //"cpu_set_mems": [0, 1]  // 进程使用的mem node，list类型
 }
 ```
 ```url
@@ -359,10 +357,8 @@ res = ["face_detection", "face_alignment", "car_detection"]
 ```json5
 {
     "task_name": "face_detection",  // 任务名称
-    //"mem_limit": 0.4,  // 进程内存占用率上限，取值[0,1]
+    //"mem_util_limit": 0.4,  // 进程内存占用率上限，取值[0,1]
     "cpu_util_limit": 0.45,  // 进程cpu占用率（所有核），取值[0,1]
-    //"cpu_set_cpus":[0, 1],  // 进程使用的cpu，list类型
-    //"cpu_set_mems": [0, 1]  // 进程使用的mem node，list类型
 }
 ```
 #### 七、运行时情境相关字段：

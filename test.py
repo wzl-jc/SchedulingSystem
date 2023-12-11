@@ -60,19 +60,19 @@ def my_plot_func():
     x = np.linspace(1, csv_data_1.shape[1], csv_data_1.shape[1])  # 创建x的取值范围
 
     # ax.plot(x, csv_data_1[16], label='2%')
-    # ax.plot(x, csv_data_2[16], label='5%')
-    # ax.plot(x, csv_data_3[16], label='10%')
-    # ax.plot(x, csv_data_4[16], label='15%')
-    ax.plot(x, csv_data_5[16], label='proc num: 1')
-    ax.plot(x, csv_data_6[16] - 0.1, label='proc num: 2')
-    ax.plot(x, csv_data_7[16] + 0.2, label='proc num: 3')
+    ax.plot(x, csv_data_2[16], label='5%')
+    ax.plot(x, csv_data_3[16], label='10%')
+    ax.plot(x, csv_data_4[16], label='15%')
+    ax.plot(x, csv_data_5[16], label='20%')
+    ax.plot(x, csv_data_6[16], label='25%')
+    ax.plot(x, csv_data_7[16], label='30%')
 
     ax.set_xlabel('frame index', fontsize=20)  # 设置x轴名称 x label
     ax.set_ylabel('latency', fontsize=20)  # 设置y轴名称 y label
-    ax.set_title('latency--proc num', fontsize=20)  # 设置图名为Simple Plot
+    ax.set_title('latency--cpu utilization', fontsize=20)  # 设置图名为Simple Plot
     ax.legend()  # 自动检测要在图例中显示的元素，并且显示
 
-    plt.ylim((0, 1))
+    plt.ylim((0, 3))
     plt.show()  # 图形可视化
 
 
@@ -358,7 +358,7 @@ def pro_func():
         a += 1
         time.sleep(5)
 
-
+'''
 if __name__ == '__main__':
     temp_process = mp.Process(target=pro_func, args=())
     temp_process.start()  # 必须先启动工作进程，只有启动之后temp_process才有pid，否则为None
@@ -391,3 +391,19 @@ if __name__ == '__main__':
     while True:
         print("jjj")
         time.sleep(2)
+'''
+
+if __name__ == '__main__':
+    my_plot_func()
+
+
+# 通用服务的中资源阈值采样类
+class MiddleThresholdSampler(object):
+
+    def __init__(self, service_name, node_ip, resource_list, conf_names, conf_values):
+        self.service_name = service_name
+        self.node_ip = node_ip
+        self.resource_list = resource_list
+        self.conf_names = conf_names
+        self.conf_values = conf_values
+
